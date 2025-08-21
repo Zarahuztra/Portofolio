@@ -1,23 +1,14 @@
 // svelte.config.js
-import adapter from '@sveltejs/adapter-static';
-
-const dev = process.env.NODE_ENV === 'development';
-// VIKTIG: nøyaktig repo-navn (case sensitive)
-const BASE = dev ? '' : '/Portofolio';
+import vercel from '@sveltejs/adapter-vercel';
 
 export default {
 	kit: {
-		adapter: adapter({
-			pages: 'docs', // bygg inn i docs/
-			assets: 'docs',
-			fallback: undefined,
-			precompress: false
-		}),
-		paths: {
-			base: BASE // ✅ KUN base. IKKE sett "assets" her.
-		},
+		adapter: vercel(),
+		// IMPORTANT for Vercel: do NOT set kit.paths.base or kit.paths.assets
+		// If you previously added a BASE for GitHub Pages, remove it here.
 		prerender: {
-			entries: ['*'] // prerender alle ruter
+			// If your whole site is static, you can keep this:
+			entries: ['*']
 		}
 	}
 };
