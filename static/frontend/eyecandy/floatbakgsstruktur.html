@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video-bakgrunn + Animasjon</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      /* CSS-stacked video elements for crossfade */
+      .bg-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 1.5s ease-in-out;
+        z-index: 0;
+      }
+      .bg-video.visible {
+        opacity: 1;
+      }
+      /* Three.js container sits above videos */
+      #three-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+      /* Frosted glass UI */
+      .glass-shape {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80vw;
+        max-width: 600px;
+        height: 60vh;
+        max-height: 400px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        /* remove padding to allow full-screen video */
+        padding: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        color: #fff;
+        z-index: 2;
+        /* rounded corners */
+        border-radius: 20px;
+      }
+      .glass-shape h1 {
+        opacity: 0;
+        animation: fadeIn 1s ease-out forwards;
+        animation-delay: 0.5s;
+      }
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+      .typewriter {
+        font-size: 1.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        border-right: 2px solid rgba(255, 255, 255, 0.8);
+        animation: typing 3s steps(20, end) 1s forwards,
+          blink-caret 0.7s step-end 4s forwards;
+      }
+      @keyframes typing {
+        from {
+          width: 0;
+        }
+        to {
+          width: 100%;
+        }
+      }
+      @keyframes blink-caret {
+        50% {
+          border-color: transparent;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Three background videos -->
+    <video
+      class="bg-video visible"
+      src="coastwaves.mp4"
+      muted
+      loop
+      playsinline
+      autoplay
+    ></video>
+    <video
+      class="bg-video"
+      src="coastwaves2.mp4"
+      muted
+      loop
+      playsinline
+      autoplay
+    ></video>
+    <video
+      class="bg-video"
+      src="coastwaves3.mp4"
+      muted
+      loop
+      playsinline
+      autoplay
+    ></video>
+
+    <div id="three-container"></div>
+    <div class="glass-shape">
+      <video
+        src="wave1.mp4"
+        autoplay
+        muted
+        loop
+        playsinline
+        style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0.6;
+          border-radius: inherit;
+        "
+      ></video>
+    </div>
+
+    <!-- Three.js + OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+      // Cycle video visibility via CSS classes
+      const videos = document.querySelectorAll(".bg-video");
+      let currentIndex = 0;
+      const fadeTime = 1.5; // seconds, matches CSS transition
+      const displayTime = 8; // seconds at full opacity
+
+      setInterval(() => {
+        // fade out current
+        videos[currentIndex].classList.remove("visible");
+        // next index
+        currentIndex = (currentIndex + 1) % videos.length;
+        // fade in next
+        videos[currentIndex].classList.add("visible");
+      }, (fadeTime + displayTime) * 1000);
+    </script>
+
+    <script>
+      (function () {
+        const container = document.getElementById("three-container");
+        const renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+
+        const aspect = window.innerWidth / window.innerHeight;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 100);
+        camera.position.set(0, 1.5, 5);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(3, 5, 2);
+        scene.add(dirLight);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        // Shader sphere
+        const vertexShader = `
+      uniform float uTime; uniform float uAmp; varying vec3 vNormal;
+      void main(){ vNormal = normal;
+        float waveX = sin(position.x*2.0 + uTime*2.0);
+        float waveY = cos(position.y*2.0 + uTime*1.5);
+        float waveZ = sin(position.z*2.0 + uTime*1.2);
+        float disp  = (waveX+waveY+waveZ)*0.3*uAmp;
+        vec3 newPos = position + normal*disp;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(newPos,1.0);
+      }
+    `;
+        const fragmentShader = `
+      varying vec3 vNormal;
+      void main(){ float intensity = dot(normalize(vNormal), vec3(0.0,1.0,0.0));
+        vec3 shadowCol = vec3(0.15,0.20,0.27);
+        vec3 midCol    = vec3(0.35,0.55,0.60);
+        vec3 glowCol   = vec3(0.75,0.60,0.40);
+        float t = smoothstep(-0.3,0.7,intensity);
+        vec3 base = mix(shadowCol, midCol, t);
+        float peak = pow(max(intensity,0.0),6.0);
+        vec3 finalColor = mix(base, glowCol, peak*0.5)*0.8;
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
+        const material = new THREE.ShaderMaterial({
+          vertexShader,
+          fragmentShader,
+          uniforms: { uTime: { value: 0 }, uAmp: { value: 1.0 } },
+        });
+        const sphere = new THREE.Mesh(
+          new THREE.SphereBufferGeometry(1, 128, 128),
+          material
+        );
+        sphere.castShadow = true;
+        scene.add(sphere);
+
+        const clock = new THREE.Clock();
+        function animate() {
+          requestAnimationFrame(animate);
+          renderer.autoClear = true;
+          renderer.clear();
+          // render only the sphere scene; videos are in DOM
+          material.uniforms.uTime.value = clock.getElapsedTime();
+          controls.update();
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener("resize", () => {
+          const w = window.innerWidth,
+            h = window.innerHeight;
+          renderer.setSize(w, h);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+        });
+      })();
+    </script>
+  </body>
+</html>

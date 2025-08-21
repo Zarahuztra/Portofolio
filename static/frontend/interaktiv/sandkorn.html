@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sandkorn/partikkelsimulator</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #191b22;
+      }
+      body {
+        height: 100vh;
+        width: 100vw;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #23262e;
+        box-shadow: 0 6px 60px #111b, 0 0 0 4px #181a23;
+        border-radius: 16px;
+        /* Ikke sett størrelse med CSS */
+      }
+      .hint {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #ffeead;
+        font-family: sans-serif;
+        opacity: 0.33;
+        font-size: 1em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="sand"></canvas>
+    <div class="hint">Hold museknappen for å helle sand</div>
+    <script>
+      function getCanvasSize() {
+        // La sandkassen fylle mest mulig av vinduet, med litt margin
+        let w = Math.min(600, window.innerWidth - 40);
+        let h = Math.min(420, window.innerHeight - 120);
+        return [Math.floor(w), Math.floor(h)];
+      }
+      let [WIDTH, HEIGHT] = getCanvasSize();
+      const canvas = document.getElementById("sand");
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+      const ctx = canvas.getContext("2d");
+      let image = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+
+      let grid = Array.from({ length: HEIGHT }, () => new Uint8Array(WIDTH));
+      let colorGrid = Array.from(
+        { length: HEIGHT },
+        () => new Uint32Array(WIDTH)
+      );
+
+      // Farger
+      function randomSandColor() {
+        let h = 44 + Math.random() * 12;
+        let s = 74 + Math.random() * 13;
+        let l = 70 + Math.random() * 13;
+        let a = (s * Math.min(l, 100 - l)) / 10000;
+        let f = (n) => {
+          let k = (n + h / 30) % 12,
+            c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+          return Math.round((255 * c) / 100);
+        };
+        return (255 << 24) | (f(0) << 16) | (f(8) << 8) | f(4);
+      }
+
+      function draw() {
+        let buf = new Uint32Array(image.data.buffer);
+        for (let y = 0; y < HEIGHT; y++) {
+          for (let x = 0; x < WIDTH; x++) {
+            buf[y * WIDTH + x] = grid[y][x] ? colorGrid[y][x] : 0xff23262e;
+          }
+        }
+        ctx.putImageData(image, 0, 0);
+      }
+
+      function step() {
+        for (let y = HEIGHT - 2; y >= 0; y--) {
+          for (let x = 0; x < WIDTH; x++) {
+            if (grid[y][x] && !grid[y + 1][x]) {
+              grid[y + 1][x] = 1;
+              colorGrid[y + 1][x] = colorGrid[y][x];
+              grid[y][x] = 0;
+            } else if (grid[y][x]) {
+              let dir = Math.random() < 0.5 ? -1 : 1;
+              if (x + dir >= 0 && x + dir < WIDTH && !grid[y + 1][x + dir]) {
+                grid[y + 1][x + dir] = 1;
+                colorGrid[y + 1][x + dir] = colorGrid[y][x];
+                grid[y][x] = 0;
+              }
+            }
+          }
+        }
+      }
+
+      // Mus-interaksjon: hell ut sand
+      let mouseDown = false;
+      canvas.addEventListener("mousedown", () => (mouseDown = true));
+      canvas.addEventListener("mouseup", () => (mouseDown = false));
+      canvas.addEventListener("mouseleave", () => (mouseDown = false));
+      canvas.addEventListener("mousemove", (e) => {
+        if (mouseDown) addSand(e);
+      });
+      canvas.addEventListener("touchstart", (e) => {
+        mouseDown = true;
+        addSand(e.touches[0]);
+      });
+      canvas.addEventListener("touchend", () => (mouseDown = false));
+      canvas.addEventListener("touchmove", (e) => {
+        if (mouseDown) addSand(e.touches[0]);
+      });
+
+      function addSand(e) {
+        const rect = canvas.getBoundingClientRect();
+        let sx = Math.floor(e.clientX - rect.left);
+        let sy = Math.floor(e.clientY - rect.top);
+        for (let dx = -2; dx <= 2; dx++)
+          for (let dy = -2; dy <= 2; dy++) {
+            let x = sx + dx,
+              y = sy + dy;
+            if (
+              x >= 0 &&
+              x < WIDTH &&
+              y >= 0 &&
+              y < HEIGHT &&
+              Math.random() > 0.35
+            ) {
+              grid[y][x] = 1;
+              colorGrid[y][x] = randomSandColor();
+            }
+          }
+      }
+
+      // Initial sand på toppen
+      for (let x = 0; x < WIDTH; x++) {
+        if (Math.random() < 0.12) {
+          grid[4][x] = 1;
+          colorGrid[4][x] = randomSandColor();
+        }
+      }
+
+      // Resizing
+      window.addEventListener("resize", () => {
+        [WIDTH, HEIGHT] = getCanvasSize();
+        canvas.width = WIDTH;
+        canvas.height = HEIGHT;
+        image = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+        grid = Array.from({ length: HEIGHT }, () => new Uint8Array(WIDTH));
+        colorGrid = Array.from(
+          { length: HEIGHT },
+          () => new Uint32Array(WIDTH)
+        );
+        // Ny sand på toppen
+        for (let x = 0; x < WIDTH; x++) {
+          if (Math.random() < 0.12) {
+            grid[4][x] = 1;
+            colorGrid[4][x] = randomSandColor();
+          }
+        }
+      });
+
+      function loop() {
+        step();
+        draw();
+        requestAnimationFrame(loop);
+      }
+      loop();
+    </script>
+  </body>
+</html>

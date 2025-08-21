@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Generativ Fraktal Tre – interaktiv og animert</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #18141a;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="fractal"></canvas>
+    <script>
+      const canvas = document.getElementById("fractal");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // Interaktiv styring
+      let mouseX = 0.5;
+      window.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX / window.innerWidth;
+      });
+
+      // Tegner et fraktalt tre rekursivt
+      function drawBranch(x, y, angle, length, depth, t) {
+        if (depth <= 0 || length < 6) return;
+
+        // Farge og bredde varierer med dybde og tid
+        const col = `hsl(${(angle * 32 + depth * 36 + t * 31) % 360},80%,${
+          58 - 7 * depth
+        }%)`;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = lerp(7, 1.2, depth / DEPTH);
+
+        // Endepunkt for denne grenen
+        const nx = x + Math.cos(angle) * length;
+        const ny = y + Math.sin(angle) * length;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+
+        // Greningsvinkel endrer seg over tid og med mus
+        const baseAngle = lerp(0.22, 1.08, mouseX);
+        const sway =
+          Math.sin(t + depth) * 0.34 + Math.cos(t * 0.37 + depth) * 0.27;
+        const branchAngle = baseAngle + sway * lerp(0.24, 0.72, mouseX);
+
+        // Forkorter grenene for hver generasjon
+        const nextLen =
+          length * lerp(0.71, 0.79, Math.abs(Math.sin(t + depth)));
+
+        // Rekursivt tegn to grener fra endepunktet
+        drawBranch(nx, ny, angle - branchAngle, nextLen, depth - 1, t);
+        drawBranch(nx, ny, angle + branchAngle, nextLen, depth - 1, t);
+      }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      const DEPTH = 8; // Endre for mer/mindre kompleksitet
+
+      function animate(tick) {
+        const t = tick * 0.0007;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Tegn flere trær over skjermen for “skog”-effekt
+        const numTrees = 4;
+        for (let i = 0; i < numTrees; i++) {
+          let frac = (i + 0.7) / numTrees;
+          let x = lerp(
+            canvas.width * 0.19,
+            canvas.width * 0.81,
+            frac + 0.1 * Math.sin(t + i)
+          );
+          let y = canvas.height * (0.89 + 0.04 * Math.cos(t * 1.4 + i));
+          let a = -Math.PI / 2 + Math.sin(t * 0.27 + i * 2) * 0.17;
+          let len = lerp(
+            canvas.height * 0.22,
+            canvas.height * 0.37,
+            0.7 + 0.2 * Math.sin(t + i * 0.8)
+          );
+          drawBranch(x, y, a, len, DEPTH, t + i * 0.24);
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

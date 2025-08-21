@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Catch Me If You Can Game – Pulse Edition</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        cursor: none;
+      }
+      canvas {
+        display: block;
+      }
+      #gameOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-size: 2em;
+        z-index: 1000;
+        cursor: default;
+      }
+      #gameOverlay button {
+        font-size: 1em;
+        padding: 10px 20px;
+        margin-top: 20px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /***********************
+         * Configuration
+         ***********************/
+        const circleCountStart = 1; // Start med én sirkel
+        const circleDiameter = 30; // Diameter (i piksler) for hver sirkel
+        const circleOpacity = 0.7; // Opacitet for sirklene
+        const playerRadius = 10; // Radius for spillerens røde sirkel
+
+        // Hastighetskonfigurasjon for hvite sirkler (de beveger seg mot spilleren)
+        const vMax = 3;
+        const vMin = 1;
+        const speedExponent = 0.678;
+        const baseSpeed = 2;
+        const speedBoost = 2;
+
+        // Duplication (duplisering) hvert 2000 ms
+        const duplicationInterval = 2000;
+
+        // Pulse-innstillinger
+        const pulseDuration = 1000; // Varighet for pulse (1 sekund)
+        const pulseMaxRadius = 200; // Maks pulse-radius
+        let pulseCharges = 3;
+        const maxPulseCharges = 3;
+        const pulseRechargeInterval = 10000; // 1 lading hvert 10 sekund
+        let lastPulseRechargeTime = performance.now();
+
+        /***********************
+         * Global Variables
+         ***********************/
+        let canvas = document.getElementById("gameCanvas");
+        let ctx = canvas.getContext("2d");
+        let canvasWidth, canvasHeight;
+        let circles = []; // Array med hvite sirkler, hvert objekt: {x, y}
+        let originalCircles = []; // Lagre opprinnelige posisjoner (for reset)
+        let mousePos = { x: 0, y: 0 }; // Spiller-posisjon (rød sirkel)
+
+        let pulseEffect = {
+          active: false,
+          startTime: 0,
+          center: { x: 0, y: 0 },
+        };
+
+        let gameRunning = true;
+        let lives = 3;
+        let score = 0;
+        let gameStartTime = performance.now();
+        let lastFrameTime = performance.now();
+
+        /***********************
+         * Initialization
+         ***********************/
+        function init() {
+          updateCanvasSize();
+
+          // Plasser én hvit sirkel langs en tilfeldig kant
+          let x, y;
+          let edge = Math.floor(Math.random() * 4);
+          if (edge === 0) {
+            x =
+              Math.random() * (canvasWidth - circleDiameter) +
+              circleDiameter / 2;
+            y = circleDiameter / 2;
+          } else if (edge === 1) {
+            x = canvasWidth - circleDiameter / 2;
+            y =
+              Math.random() * (canvasHeight - circleDiameter) +
+              circleDiameter / 2;
+          } else if (edge === 2) {
+            x =
+              Math.random() * (canvasWidth - circleDiameter) +
+              circleDiameter / 2;
+            y = canvasHeight - circleDiameter / 2;
+          } else {
+            x = circleDiameter / 2;
+            y =
+              Math.random() * (canvasHeight - circleDiameter) +
+              circleDiameter / 2;
+          }
+          circles.push({ x: x, y: y });
+          originalCircles.push({ x: x, y: y });
+
+          // Start spillerens posisjon midt i skjermen.
+          mousePos.x = canvasWidth / 2;
+          mousePos.y = canvasHeight / 2;
+        }
+
+        function updateCanvasSize() {
+          canvasWidth = window.innerWidth;
+          canvasHeight = window.innerHeight;
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+        }
+        window.addEventListener("resize", updateCanvasSize);
+
+        canvas.addEventListener("mousemove", (e) => {
+          mousePos.x = e.clientX;
+          mousePos.y = e.clientY;
+        });
+
+        // Aktiver pulse ved mousedown (hvis lading tilgjengelig og ingen pulse aktiv)
+        canvas.addEventListener("mousedown", function () {
+          if (pulseCharges > 0 && !pulseEffect.active) {
+            pulseCharges--;
+            pulseEffect.active = true;
+            pulseEffect.startTime = performance.now();
+            pulseEffect.center = { x: mousePos.x, y: mousePos.y };
+          }
+        });
+
+        /***********************
+         * Duplication Mechanic
+         ***********************/
+        function duplicateCircles() {
+          console.log(
+            "DuplicateCircles called, count before: " + circles.length
+          );
+          // Duplicer alle hvite sirkler (lag nye objekter med samme posisjon).
+          let newCircles = circles.map((c) => ({ x: c.x, y: c.y }));
+          circles = circles.concat(newCircles);
+          console.log("Count after duplication: " + circles.length);
+        }
+        setInterval(duplicateCircles, duplicationInterval);
+
+        /***********************
+         * Game Loop
+         ***********************/
+        function gameLoop() {
+          let currentTime = performance.now();
+          let dt = (currentTime - lastFrameTime) / 16.67;
+          lastFrameTime = currentTime;
+
+          if (gameRunning) {
+            updateGame(dt, currentTime);
+            checkCollisions();
+            drawGame();
+          }
+          requestAnimationFrame(gameLoop);
+        }
+
+        /***********************
+         * Game Update
+         ***********************/
+        function updateGame(dt, currentTime) {
+          let elapsedSec = (currentTime - gameStartTime) / 1000;
+          let speedMultiplier = 1 + elapsedSec / 10;
+          score = Math.floor(Math.exp(elapsedSec / 3));
+
+          // Recharge pulse.
+          if (
+            pulseCharges < maxPulseCharges &&
+            currentTime - lastPulseRechargeTime >= pulseRechargeInterval
+          ) {
+            pulseCharges++;
+            lastPulseRechargeTime = currentTime;
+          }
+
+          // Oppdater alle sirkler: beregn hastigheten de skal bevege seg med.
+          let distances = circles.map((circle) => {
+            let dx = circle.x - mousePos.x;
+            let dy = circle.y - mousePos.y;
+            return Math.sqrt(dx * dx + dy * dy);
+          });
+          let dMin = Math.min(...distances);
+          let dMax = Math.max(...distances);
+          if (dMax === dMin) dMax = dMin + 1;
+
+          circles.forEach((circle, i) => {
+            let d = distances[i];
+            let r = (d - dMin) / (dMax - dMin);
+            let speedFactor = vMax - (vMax - vMin) * Math.pow(r, speedExponent);
+            speedFactor *= speedBoost;
+
+            let dx = mousePos.x - circle.x;
+            let dy = mousePos.y - circle.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 0.5) return;
+            let nx = dx / dist;
+            let ny = dy / dist;
+
+            circle.x += nx * baseSpeed * speedFactor * speedMultiplier * dt;
+            circle.y += ny * baseSpeed * speedFactor * speedMultiplier * dt;
+          });
+
+          // Pulse effect: vis en ekspanderende sirkel og fjern hvite sirkler innenfor denne.
+          if (pulseEffect.active) {
+            let pulseElapsed = currentTime - pulseEffect.startTime;
+            if (pulseElapsed > pulseDuration) {
+              pulseEffect.active = false;
+            } else {
+              let currentPulseRadius =
+                playerRadius +
+                (pulseMaxRadius - playerRadius) *
+                  (pulseElapsed / pulseDuration);
+              circles = circles.filter((circle) => {
+                let dx = circle.x - pulseEffect.center.x;
+                let dy = circle.y - pulseEffect.center.y;
+                return Math.sqrt(dx * dx + dy * dy) > currentPulseRadius;
+              });
+            }
+          }
+        }
+
+        /***********************
+         * Collision Detection
+         ***********************/
+        function checkCollisions() {
+          let circleRadius = circleDiameter / 2;
+          let collisionThreshold = circleRadius + playerRadius;
+          for (let circle of circles) {
+            let dx = circle.x - mousePos.x;
+            let dy = circle.y - mousePos.y;
+            if (Math.sqrt(dx * dx + dy * dy) < collisionThreshold) {
+              gameOver();
+              break;
+            }
+          }
+        }
+
+        /***********************
+         * Handle Collision/Game Over
+         ***********************/
+        function gameOver() {
+          gameRunning = false;
+          lives--;
+          showGameOverOverlay();
+        }
+        function showGameOverOverlay() {
+          let overlay = document.createElement("div");
+          overlay.id = "gameOverlay";
+          overlay.innerHTML = `
+            <p>Game Over</p>
+            <p>Score: ${score}</p>
+            <p>Lives remaining: ${lives}</p>
+            <button id="resetBtn">Reset</button>
+          `;
+          document.body.appendChild(overlay);
+          document
+            .getElementById("resetBtn")
+            .addEventListener("click", resetGame);
+        }
+        function resetGame() {
+          let overlay = document.getElementById("gameOverlay");
+          if (overlay) document.body.removeChild(overlay);
+          if (lives <= 0) {
+            lives = 3;
+            score = 0;
+            pulseCharges = maxPulseCharges;
+          }
+          // Reset circles til de opprinnelige posisjonene.
+          circles = [];
+          for (let c of originalCircles) {
+            circles.push({ x: c.x, y: c.y });
+          }
+          gameStartTime = performance.now();
+          lastFrameTime = performance.now();
+          gameRunning = true;
+        }
+
+        /***********************
+         * Drawing
+         ***********************/
+        function drawGame() {
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+          // Tegn hvite sirkler.
+          ctx.fillStyle = `rgba(255, 255, 255, ${circleOpacity})`;
+          circles.forEach((circle) => {
+            ctx.beginPath();
+            ctx.arc(circle.x, circle.y, circleDiameter / 2, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          // Tegn spilleren som en rød sirkel.
+          ctx.fillStyle = "red";
+          ctx.beginPath();
+          ctx.arc(mousePos.x, mousePos.y, playerRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Tegn pulse-effekten hvis aktiv.
+          if (pulseEffect.active) {
+            let pulseElapsed = performance.now() - pulseEffect.startTime;
+            let currentPulseRadius =
+              playerRadius +
+              (pulseMaxRadius - playerRadius) * (pulseElapsed / pulseDuration);
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(
+              pulseEffect.center.x,
+              pulseEffect.center.y,
+              currentPulseRadius,
+              0,
+              Math.PI * 2
+            );
+            ctx.stroke();
+          }
+
+          // Tegn score, lives og pulse-charges i øvre høyre hjørne.
+          ctx.fillStyle = "white";
+          ctx.font = "24px Arial";
+          ctx.textAlign = "right";
+          ctx.fillText(
+            `Score: ${score}   Lives: ${lives}   Pulses: ${pulseCharges}`,
+            canvasWidth - 10,
+            30
+          );
+        }
+
+        /***********************
+         * Start the Game
+         ***********************/
+        init();
+        setInterval(duplicateCircles, duplicationInterval);
+        requestAnimationFrame(gameLoop);
+      });
+    </script>
+  </body>
+</html>

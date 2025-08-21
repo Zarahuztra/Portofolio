@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three.js Rolling Ball Cursor</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        cursor: none;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://unpkg.com/three@0.152.0/build/three.min.js"></script>
+    <script>
+      // --- Oppsett av scene, kamera og renderer ---
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 5);
+      camera.lookAt(0, 0, 0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lys
+      const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(5, 10, 7.5);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // Gulv
+      const floorGeo = new THREE.PlaneGeometry(20, 20);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Tekstur for ball (striper som viser rotasjon)
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 512;
+      const ctx = canvas.getContext("2d");
+      for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = i % 2 === 0 ? "#ffffff" : "#333333";
+        ctx.fillRect(i * 64, 0, 64, 512);
+      }
+      const stripeTexture = new THREE.CanvasTexture(canvas);
+      stripeTexture.wrapS = stripeTexture.wrapT = THREE.RepeatWrapping;
+      stripeTexture.repeat.set(1, 1);
+
+      // Ball
+      const radius = 1;
+      const sphereGeo = new THREE.SphereGeometry(radius, 64, 64);
+      const sphereMat = new THREE.MeshStandardMaterial({ map: stripeTexture });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.castShadow = true;
+      sphere.position.y = radius;
+      scene.add(sphere);
+
+      // Raycaster for museposisjon på gulvet
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+      // Delay- og fysikk-parametre
+      const lagFactor = 0.05;
+      const damping = 0.15;
+      const moveThreshold = 1e-4;
+
+      const targetLag = new THREE.Vector3();
+      let velocity = new THREE.Vector3();
+
+      window.addEventListener("mousemove", (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Raycast mot gulv
+        raycaster.setFromCamera(mouse, camera);
+        const intersect = new THREE.Vector3();
+        raycaster.ray.intersectPlane(floorPlane, intersect);
+
+        // Forsinket målposisjon
+        targetLag.lerp(intersect, lagFactor);
+
+        // Beregn hastighet mot forsinket posisjon
+        const toTarget = targetLag.clone().sub(sphere.position);
+        toTarget.y = 0;
+        velocity.lerp(toTarget, damping);
+        sphere.position.add(velocity);
+        sphere.position.y = radius;
+
+        // Rull kun når i bevegelse
+        if (velocity.lengthSq() > moveThreshold) {
+          const axis = new THREE.Vector3()
+            .crossVectors(new THREE.Vector3(0, 1, 0), velocity.clone())
+            .normalize();
+          const angle = velocity.length() / radius;
+          const q = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+          sphere.quaternion.multiply(q);
+        }
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

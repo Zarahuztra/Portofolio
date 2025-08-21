@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Organisk slime / væske-demo</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #202532;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #eee;
+        font-family: sans-serif;
+        opacity: 0.28;
+        font-size: 1.1em;
+        pointer-events: none;
+        letter-spacing: 0.03em;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="slime"></canvas>
+    <div class="hint">
+      Dra og slipp boblene – se dem smelte sammen som slim!
+    </div>
+    <script>
+      const canvas = document.getElementById("slime");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      // Blobber:
+      const NUM_BLOBS = 6;
+      const blobs = [];
+      const colors = [
+        "#57ffe0",
+        "#90b3ff",
+        "#ffd16f",
+        "#ff7de7",
+        "#ff6f63",
+        "#ae6fff",
+      ];
+
+      for (let i = 0; i < NUM_BLOBS; i++) {
+        blobs.push({
+          x: 220 + Math.random() * 600,
+          y: 200 + Math.random() * 320,
+          r: 58 + Math.random() * 36,
+          vx: (Math.random() - 0.5) * 1.3,
+          vy: (Math.random() - 0.5) * 1.3,
+          color: colors[i % colors.length],
+          drag: false,
+        });
+      }
+
+      // Metaballs-funksjon:
+      function metaballs(ctx, blobs, w, h) {
+        const img = ctx.getImageData(0, 0, w, h);
+        const data = img.data;
+        // Tegn bare hver 2. piksel for ytelse
+        for (let y = 0; y < h; y += 2)
+          for (let x = 0; x < w; x += 2) {
+            let v = 0;
+            for (let i = 0; i < blobs.length; i++) {
+              const b = blobs[i];
+              const dx = x - b.x,
+                dy = y - b.y;
+              v += (b.r * b.r) / (dx * dx + dy * dy + 1);
+            }
+            if (v > 1) {
+              // Gjør fargen til et gradient/mix
+              let maxI = 0,
+                maxV = -1;
+              for (let i = 0; i < blobs.length; i++) {
+                const b = blobs[i];
+                const dx = x - b.x,
+                  dy = y - b.y;
+                const d2 = (b.r * b.r) / (dx * dx + dy * dy + 1);
+                if (d2 > maxV) {
+                  maxV = d2;
+                  maxI = i;
+                }
+              }
+              // Hent farge fra den nærmeste boblen (eller blend hvis du vil!)
+              const c = blobs[maxI].color;
+              const [r, g, b] =
+                c.length === 7
+                  ? [
+                      parseInt(c.slice(1, 3), 16),
+                      parseInt(c.slice(3, 5), 16),
+                      parseInt(c.slice(5, 7), 16),
+                    ]
+                  : [87, 255, 224];
+              const idx = (y * w + x) * 4;
+              data[idx + 0] = r;
+              data[idx + 1] = g;
+              data[idx + 2] = b;
+              data[idx + 3] = 190 + Math.min(65, Math.floor((v - 1) * 64));
+            }
+          }
+        ctx.putImageData(img, 0, 0);
+      }
+
+      // Mus-interaksjon:
+      let dragging = -1,
+        offsetX = 0,
+        offsetY = 0;
+      canvas.addEventListener("mousedown", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        for (let i = blobs.length - 1; i >= 0; i--) {
+          let dx = mx - blobs[i].x,
+            dy = my - blobs[i].y;
+          if (dx * dx + dy * dy < blobs[i].r * blobs[i].r) {
+            dragging = i;
+            offsetX = dx;
+            offsetY = dy;
+            break;
+          }
+        }
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (dragging >= 0) {
+          const rect = canvas.getBoundingClientRect();
+          blobs[dragging].x = e.clientX - rect.left - offsetX;
+          blobs[dragging].y = e.clientY - rect.top - offsetY;
+        }
+      });
+      window.addEventListener("mouseup", () => (dragging = -1));
+
+      // Hoved-loop:
+      function animate() {
+        let w = canvas.width,
+          h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        // Flytt alle bobler (unntatt den som dras)
+        for (let b of blobs) {
+          if (!b.drag && blobs.indexOf(b) !== dragging) {
+            b.x += b.vx;
+            b.y += b.vy;
+            // Veggkollisjon
+            if (b.x - b.r < 0) {
+              b.x = b.r;
+              b.vx *= -1;
+            }
+            if (b.x + b.r > w) {
+              b.x = w - b.r;
+              b.vx *= -1;
+            }
+            if (b.y - b.r < 0) {
+              b.y = b.r;
+              b.vy *= -1;
+            }
+            if (b.y + b.r > h) {
+              b.y = h - b.r;
+              b.vy *= -1;
+            }
+          }
+        }
+
+        // Metaball slime rendering
+        metaballs(ctx, blobs, w, h);
+
+        // Soft highlight overlay
+        for (let b of blobs) {
+          ctx.save();
+          ctx.globalAlpha = 0.09;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r * 1.3, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff";
+          ctx.shadowColor = "#fff";
+          ctx.shadowBlur = 16;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

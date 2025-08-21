@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Wobbly Full-Screen Springs</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+    <script>
+      // Ensure getImageData is fast
+      (function () {
+        const orig = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, opts) {
+          if (type === "2d")
+            opts = Object.assign({ willReadFrequently: true }, opts || {});
+          return orig.call(this, type, opts);
+        };
+      })();
+    </script>
+    <script src="https://unpkg.com/paper@0.12.15/dist/paper-full.min.js"></script>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      // Setup Paper.js
+      const canvas = document.getElementById("canvas");
+      paper.setup(canvas);
+
+      // — Wobble-tweaked parameters —
+      const values = {
+        friction: 0.5, // less damping → longer oscillations
+        timeStep: 0.02, // larger time step → more pronounced motion
+        amount: 25, // more segments → finer waves
+        mass: 1.5, // lighter mass → springier motion
+      };
+      values.invMass = 1 / values.mass;
+
+      let path = null,
+        springs = [];
+      let size = new paper.Size();
+
+      class Spring {
+        constructor(a, b, strength = 0.8, restLength = 100) {
+          this.a = a;
+          this.b = b;
+          this.strength = strength; // stronger spring
+          this.restLength = restLength;
+          this.mamb = values.invMass * values.invMass;
+        }
+        update() {
+          const delta = this.b.subtract(this.a);
+          const dist = delta.length;
+          const norm =
+            ((dist - this.restLength) / (dist * this.mamb)) * this.strength;
+          delta.y *= norm * values.invMass * 0.2;
+          if (!this.a.fixed) this.a.y += delta.y;
+          if (!this.b.fixed) this.b.y -= delta.y;
+        }
+      }
+
+      function createPath(strength) {
+        if (path) path.remove();
+        path = new paper.Path({ fillColor: "blue" });
+        springs = [];
+        for (let i = 0; i <= values.amount; i++) {
+          const seg = path.add(
+            new paper.Point(i / values.amount, 0.5).multiply(size)
+          );
+          const pt = seg.point;
+          pt.fixed = i < 2 || i > values.amount - 2;
+          pt.px = pt.x;
+          pt.py = pt.y;
+          if (i > 0) springs.push(new Spring(seg.previous.point, pt, strength));
+        }
+        path.position.x -= size.width / 4;
+      }
+
+      function updateWave() {
+        const force = 1 - values.friction * values.timeStep * values.timeStep;
+        for (const seg of path.segments) {
+          const p = seg.point;
+          const dy = (p.y - p.py) * force;
+          p.py = p.y;
+          p.y = Math.max(p.y + dy, 0);
+        }
+        for (const s of springs) s.update();
+        path.smooth({ type: "continuous" });
+      }
+
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const w = window.innerWidth,
+          h = window.innerHeight;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        paper.view.viewSize = new paper.Size(w, h);
+        size = paper.view.bounds.size.multiply([2, 1]);
+        createPath(0.15); // slightly stronger initial pull
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      paper.view.onMouseMove = (evt) => {
+        const loc = path.getNearestLocation(evt.point);
+        if (!loc) return;
+        const seg = loc.segment;
+        const pt = seg.point;
+        if (!pt.fixed && loc.distance < size.height / 3) {
+          const dy = (evt.point.y - pt.y) / 4; // bigger poke
+          pt.y += dy;
+          if (seg.previous && !seg.previous.point.fixed)
+            seg.previous.point.y += dy / 3;
+          if (seg.next && !seg.next.point.fixed) seg.next.point.y += dy / 3;
+        }
+      };
+
+      paper.view.onFrame = () => updateWave();
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === " ") {
+          path.fullySelected = !path.fullySelected;
+          path.fillColor = path.fullySelected ? null : "black";
+        }
+      });
+    </script>
+  </body>
+</html>

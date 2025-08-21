@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Pixel Rain/Snow Effect</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+        background: #fff;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      // Scene setup
+      const container = document.getElementById("container");
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 10);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      // Set canvas clear color to white to match background
+      renderer.setClearColor(0xffffff);
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      // Light
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.5));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      dirLight.position.set(0, 10, 0);
+      scene.add(dirLight);
+
+      // Parameters
+      const count = 2000;
+      const heightRange = 20;
+      const areaSize = 40;
+      const dropWidth = 0.05;
+      const dropHeight = 0.2;
+      const speedMin = 5;
+      const speedMax = 10;
+
+      // Instanced drops
+      const geom = new THREE.BoxBufferGeometry(
+        dropWidth,
+        dropHeight,
+        dropWidth
+      );
+      const mat = new THREE.MeshStandardMaterial({ color: 0x99ccff });
+      const inst = new THREE.InstancedMesh(geom, mat, count);
+      scene.add(inst);
+
+      // State
+      const positions = new Array(count);
+      const velocities = new Array(count);
+      const dummy = new THREE.Object3D();
+
+      function reset(i, randomY = true) {
+        const x = (Math.random() * 2 - 1) * areaSize;
+        const y = randomY ? Math.random() * heightRange : heightRange;
+        const z = (Math.random() * 2 - 1) * areaSize;
+        positions[i] = new THREE.Vector3(x, y, z);
+        const speed = speedMin + Math.random() * (speedMax - speedMin);
+        velocities[i] = new THREE.Vector3(0, -speed, 0);
+      }
+      for (let i = 0; i < count; i++) reset(i, true);
+
+      // Animate
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        for (let i = 0; i < count; i++) {
+          const p = positions[i];
+          p.addScaledVector(velocities[i], dt);
+          if (p.y < 0) reset(i, false);
+          dummy.position.copy(p);
+          dummy.updateMatrix();
+          inst.setMatrixAt(i, dummy.matrix);
+        }
+        inst.instanceMatrix.needsUpdate = true;
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Resize
+      window.addEventListener("resize", () => {
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+      });
+    </script>
+  </body>
+</html>

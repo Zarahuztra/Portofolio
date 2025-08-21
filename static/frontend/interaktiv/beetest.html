@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Smooth Steerable Bee Overlay</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 100vw;
+        height: 100vh;
+        background: url("bilder/flowers1.jpg") no-repeat center center fixed;
+        background-size: cover;
+        overflow: hidden;
+      }
+      #bee {
+        position: absolute;
+        left: 50vw;
+        top: 50vh;
+        width: 120px;
+        user-select: none;
+        pointer-events: none; /* So mouse passes through bee */
+        z-index: 2;
+        transition: filter 0.15s;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="bilder/beegifcomp1.gif" id="bee" alt="Bee" draggable="false" />
+
+    <script>
+      // Settings
+      const minBeeSize = 60; // px
+      const maxBeeSize = 300; // px
+      const initialBeeSize = 120;
+      const followSpeed = 0.11; // Smoothing factor (higher=faster)
+
+      const bee = document.getElementById("bee");
+      let beeSize = initialBeeSize;
+      let beePos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }; // Current position (px)
+      let targetPos = { x: beePos.x, y: beePos.y }; // Where bee wants to go
+
+      // Mouse position tracking
+      let mouse = { x: beePos.x, y: beePos.y };
+
+      // Listen for mousemove
+      document.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+
+      // Update targetPos based on mouse position
+      function updateTargetPos() {
+        // Center of bee
+        const beeCenter = {
+          x: beePos.x + beeSize / 2,
+          y: beePos.y + beeSize / 2,
+        };
+
+        // Distance from bee center to mouse
+        const dx = mouse.x - beeCenter.x;
+        const dy = mouse.y - beeCenter.y;
+
+        // Only move if mouse is outside a deadzone (so it's not jittery)
+        const deadZone = 12;
+        let tx = beePos.x,
+          ty = beePos.y;
+        if (Math.abs(dx) > deadZone) tx += dx * 0.16; // The further, the faster (but not linear)
+        if (Math.abs(dy) > deadZone) ty += dy * 0.16;
+
+        // Limit target so bee never moves outside viewport
+        tx = Math.max(0, Math.min(window.innerWidth - beeSize, tx));
+        ty = Math.max(0, Math.min(window.innerHeight - beeSize, ty));
+        targetPos.x = tx;
+        targetPos.y = ty;
+      }
+
+      // Animation loop for smooth movement
+      function animate() {
+        updateTargetPos();
+        // Smoothly interpolate beePos towards targetPos
+        beePos.x += (targetPos.x - beePos.x) * followSpeed;
+        beePos.y += (targetPos.y - beePos.y) * followSpeed;
+
+        bee.style.left = beePos.x + "px";
+        bee.style.top = beePos.y + "px";
+        bee.style.width = beeSize + "px";
+        bee.style.height = "auto";
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      // Resize bee with scroll wheel (with min/max clamp)
+      document.addEventListener(
+        "wheel",
+        (e) => {
+          // Negative deltaY means scroll up (make smaller), positive means scroll down (make bigger)
+          if (e.deltaY < 0) {
+            beeSize = Math.max(minBeeSize, beeSize - 10);
+          } else if (e.deltaY > 0) {
+            beeSize = Math.min(maxBeeSize, beeSize + 10);
+          }
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+
+      // Clamp bee position on resize
+      window.addEventListener("resize", () => {
+        beePos.x = Math.max(0, Math.min(window.innerWidth - beeSize, beePos.x));
+        beePos.y = Math.max(
+          0,
+          Math.min(window.innerHeight - beeSize, beePos.y)
+        );
+      });
+
+      // Optional: reset bee to center on load
+      window.onload = () => {
+        beePos.x = window.innerWidth / 2 - beeSize / 2;
+        beePos.y = window.innerHeight / 2 - beeSize / 2;
+        bee.style.left = beePos.x + "px";
+        bee.style.top = beePos.y + "px";
+        bee.style.width = beeSize + "px";
+      };
+    </script>
+  </body>
+</html>

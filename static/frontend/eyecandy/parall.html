@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Parallax Gradient Layers</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #191829;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="parallax"></canvas>
+    <script>
+      const canvas = document.getElementById("parallax");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = Math.max(64, window.innerWidth);
+        canvas.height = Math.max(64, window.innerHeight);
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      const LAYERS = [
+        {
+          blobs: 3,
+          colorA: "#3e52a3",
+          colorB: "#6be6e6",
+          speed: 0.11,
+          amp: 90,
+        },
+        {
+          blobs: 4,
+          colorA: "#a53680",
+          colorB: "#f9b5e7",
+          speed: 0.16,
+          amp: 120,
+        },
+        {
+          blobs: 2,
+          colorA: "#a54236",
+          colorB: "#ffc776",
+          speed: 0.055,
+          amp: 50,
+        },
+      ];
+
+      let mouseX = 0.5,
+        mouseY = 0.5;
+      window.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX / window.innerWidth;
+        mouseY = e.clientY / window.innerHeight;
+      });
+      window.addEventListener(
+        "touchmove",
+        (e) => {
+          if (e.touches && e.touches[0]) {
+            mouseX = e.touches[0].clientX / window.innerWidth;
+            mouseY = e.touches[0].clientY / window.innerHeight;
+          }
+        },
+        { passive: true }
+      );
+
+      function drawBlob(cx, cy, r, col1, col2, alpha = 1) {
+        if (!isFinite(cx) || !isFinite(cy) || !isFinite(r) || r < 2) return;
+        let grad = ctx.createRadialGradient(
+          cx,
+          cy,
+          Math.max(1, r * 0.35),
+          cx,
+          cy,
+          r
+        );
+        grad.addColorStop(0, col1);
+        grad.addColorStop(1, col2);
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      }
+
+      function animate(ts) {
+        // Sikring for resize-glitch:
+        if (canvas.width < 32 || canvas.height < 32) resize();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let w = canvas.width,
+          h = canvas.height;
+        let t = ts * 0.00035;
+
+        for (let l = 0; l < LAYERS.length; l++) {
+          let { blobs, colorA, colorB, speed, amp } = LAYERS[l];
+          let px = (mouseX - 0.5) * w * 0.17 * speed;
+          let py = (mouseY - 0.5) * h * 0.19 * speed;
+          for (let b = 0; b < blobs; b++) {
+            let ang = t * (0.8 + l * 0.14) + b * 2.7 + l * 1.7;
+            let bx =
+              w * (0.27 + 0.46 * Math.sin(ang + b)) +
+              Math.sin(ang * 1.7 + b) * amp +
+              px;
+            let by =
+              h * (0.3 + 0.46 * Math.cos(ang - b)) +
+              Math.cos(ang * 1.3 + b) * amp +
+              py;
+            let rad = lerp(
+              120,
+              420,
+              0.38 + 0.44 * Math.sin(ang + b * 0.93 + l * 0.41)
+            );
+            drawBlob(
+              bx,
+              by,
+              rad,
+              colorA,
+              colorB,
+              lerp(0.27, 0.58, 1 - l / LAYERS.length)
+            );
+          }
+        }
+        requestAnimationFrame(animate);
+      }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      animate();
+    </script>
+  </body>
+</html>

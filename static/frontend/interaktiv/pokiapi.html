@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pokémon Viser</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background-color: #f0f0f0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start; /* Align to top */
+        min-height: 100vh;
+        margin: 0;
+        padding-top: 20px; /* Add some space at the top */
+      }
+
+      #pokemonContainer {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+      }
+
+      .search-controls {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .search-controls input {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      .pokemon-display {
+        margin-bottom: 20px;
+      }
+
+      #pokemonImageWrapper {
+        background-color: #e8e8e8;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 15px;
+        min-height: 270px; /* Justert for å romme navn, ID og bilde */
+        display: flex;
+        flex-direction: column; /* For å stable navn, ID, bilde */
+        justify-content: center;
+        align-items: center;
+      }
+
+      #pokemonImageWrapper img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        width: 200px; /* Fast bredde for konsistens */
+        height: 200px; /* Fast høyde for konsistens */
+      }
+
+      .action-buttons,
+      .navigation-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px; /* Mellomrom mellom knapper */
+        flex-wrap: wrap; /* La knapper gå til neste linje om nødvendig */
+      }
+
+      .action-buttons {
+        margin-bottom: 15px; /* Litt ekstra rom under action-knappene */
+      }
+
+      button {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: background-color 0.2s ease;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .pokemon-name {
+        font-size: 1.5em;
+        font-weight: bold;
+        margin-bottom: 5px;
+        text-transform: capitalize;
+      }
+
+      .pokemon-id {
+        font-size: 1em;
+        color: #555;
+        margin-bottom: 10px; /* Litt mindre enn før, bildet kommer rett etter */
+      }
+    </style>
+  </head>
+  <body>
+    <div id="pokemonContainer">
+      <!-- Innhold genereres av JavaScript -->
+    </div>
+
+    <script>
+      const API_URL = "https://pokeapi.co/api";
+      const mainContainer = document.getElementById("pokemonContainer");
+      var pokemon = undefined; // 'let' er ofte foretrukket, men beholder 'var' fra originalen
+
+      let search = "";
+      let pokemonId = 1; // Default to Bulbasaur
+
+      const filters = { shiny: false, direction: "front" };
+
+      const viewPokemonById = async (id) => {
+        if (id < 1) id = 1; // Forhindre ID mindre enn 1
+        pokemonId = id;
+        search = ""; // Nullstill søkestreng når vi navigerer med ID
+        await fetchPokemon(pokemonId);
+        renderPage();
+      };
+
+      const createButton = (
+        text,
+        className,
+        onClickAction,
+        disabled = false
+      ) => {
+        const buttonElement = document.createElement("button");
+        buttonElement.textContent = text;
+        if (className) buttonElement.classList.add(className);
+        buttonElement.addEventListener("click", onClickAction);
+        buttonElement.disabled = disabled;
+        return buttonElement;
+      };
+
+      const nextPokemonButton = () =>
+        createButton(
+          "Neste Pokémon",
+          "next-button",
+          async () => await viewPokemonById(pokemonId + 1)
+        );
+
+      const previousPokemonButton = () =>
+        createButton(
+          "Forrige Pokémon",
+          "previous-button",
+          async () => await viewPokemonById(pokemonId - 1),
+          pokemonId <= 1 // Deaktiver hvis det er den første Pokémon
+        );
+
+      const toggleShinyButton = () =>
+        createButton("Toggle Shiny", "shiny-button", () => {
+          filters.shiny = !filters.shiny;
+          renderPage();
+        });
+
+      const rotatePokemon = () => {
+        filters.direction = filters.direction === "front" ? "back" : "front";
+      };
+
+      const rotatePokemonButton = () =>
+        createButton("Roter Pokémon", "rotate-button", () => {
+          rotatePokemon();
+          renderPage();
+        });
+
+      const fetchPokemon = async (input) => {
+        const loadingMessage = document.createElement("p");
+        loadingMessage.textContent = "Laster Pokémon...";
+        mainContainer.innerHTML = ""; // Tøm tidligere innhold før lasting
+        mainContainer.appendChild(loadingMessage);
+
+        try {
+          const response = await fetch(
+            `${API_URL}/v2/pokemon/${String(input).toLowerCase()}`
+          );
+          if (!response.ok) {
+            throw new Error(
+              `Could not fetch Pokémon: ${response.status} for input: ${input}`
+            );
+          }
+          pokemon = await response.json();
+          pokemonId = pokemon.id; // Oppdater pokemonId basert på funnet Pokémon
+        } catch (error) {
+          console.error(error);
+          pokemon = null; // Sett pokemon til null ved feil
+        }
+      };
+
+      const handleSearch = async () => {
+        if (search.trim().length > 0) {
+          // Ikke nødvendig å sette pokemonId her manuelt hvis søket er på navn,
+          // fetchPokemon vil oppdatere pokemonId hvis Pokémonen finnes.
+          await fetchPokemon(search.trim());
+          renderPage();
+        } else {
+          alert("Skriv inn et navn eller ID for å søke.");
+        }
+      };
+
+      const searchButton = () =>
+        createButton("Søk", "search-button", handleSearch);
+
+      const searchInput = () => {
+        const inputElement = document.createElement("input");
+        inputElement.value = search;
+        inputElement.placeholder = "ID eller Pokémon-navn...";
+        inputElement.classList.add("searchInput");
+        inputElement.type = "search"; // Gir mulighet for 'x' for å tømme feltet i noen nettlesere
+        inputElement.addEventListener(
+          "input",
+          () => (search = inputElement.value)
+        );
+        inputElement.addEventListener("keypress", async (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault(); // Forhindre form submit hvis input er i et form
+            await handleSearch();
+          }
+        });
+        return inputElement;
+      };
+
+      const displayPokemon = (imageWrapper) => {
+        if (!pokemon || !pokemon.sprites) {
+          imageWrapper.innerHTML = "<p>Ingen Pokémon-data å vise.</p>";
+          // Sjekk om det er en feil etter et søk
+          if (pokemon === null && search.trim() !== "") {
+            imageWrapper.innerHTML = `<p>Fant ingen Pokémon med navn/ID: "${search}".</p>`;
+          }
+          return;
+        }
+
+        imageWrapper.innerHTML = ""; // Tøm tidligere innhold
+
+        const nameElement = document.createElement("h2");
+        nameElement.className = "pokemon-name";
+        nameElement.textContent = pokemon.name;
+
+        const idElement = document.createElement("p");
+        idElement.className = "pokemon-id";
+        idElement.textContent = `#${pokemon.id.toString().padStart(3, "0")}`;
+
+        const imgElement = document.createElement("img");
+        let imageUrl;
+
+        if (filters.shiny) {
+          imageUrl =
+            filters.direction === "front"
+              ? pokemon.sprites.front_shiny
+              : pokemon.sprites.back_shiny;
+        } else {
+          imageUrl =
+            filters.direction === "front"
+              ? pokemon.sprites.front_default
+              : pokemon.sprites.back_default;
+        }
+
+        if (imageUrl) {
+          imgElement.src = imageUrl;
+          imgElement.alt = `Bilde av ${pokemon.name}`;
+          // Størrelse satt i CSS for #pokemonImageWrapper img
+        } else {
+          // Hvis det spesifikke sprite (f.eks. back_shiny) ikke finnes
+          const noImageText = document.createElement("p");
+          noImageText.textContent =
+            "Bilde ikke tilgjengelig for denne visningen.";
+          imageWrapper.append(nameElement, idElement, noImageText);
+          return;
+        }
+
+        imageWrapper.append(nameElement, idElement, imgElement);
+      };
+
+      const renderPage = () => {
+        mainContainer.innerHTML = ""; // Tøm hovedcontaineren
+
+        // 1. Søkekontroller (vises alltid)
+        const searchControls = document.createElement("div");
+        searchControls.className = "search-controls";
+        searchControls.append(searchInput(), searchButton());
+        mainContainer.append(searchControls);
+
+        if (pokemon) {
+          // Pokémon-objekt finnes = suksess
+          // 2. Pokémon-visningsområde
+          const pokemonDisplay = document.createElement("div");
+          pokemonDisplay.className = "pokemon-display";
+
+          // 2a. Div for bildet og info
+          const imageWrapper = document.createElement("div");
+          imageWrapper.id = "pokemonImageWrapper";
+          displayPokemon(imageWrapper); // Send wrapperen til displayfunksjonen
+          pokemonDisplay.append(imageWrapper);
+
+          // 2b. Div for action-knapper (Rotate, Shiny)
+          const actionButtonsDiv = document.createElement("div");
+          actionButtonsDiv.className = "action-buttons";
+          actionButtonsDiv.append(rotatePokemonButton(), toggleShinyButton());
+          pokemonDisplay.append(actionButtonsDiv);
+
+          mainContainer.append(pokemonDisplay);
+
+          // 3. Div for navigeringsknapper (Previous, Next)
+          const navigationButtonsDiv = document.createElement("div");
+          navigationButtonsDiv.className = "navigation-buttons";
+          navigationButtonsDiv.append(
+            previousPokemonButton(),
+            nextPokemonButton()
+          );
+          mainContainer.append(navigationButtonsDiv);
+        } else if (pokemon === null) {
+          // pokemon er null = fetch-forsøk feilet
+          const errorMessage = document.createElement("p");
+          if (search && search.trim() !== "") {
+            errorMessage.textContent = `Fant ingen Pokémon med navn/ID: "${search}". Prøv igjen.`;
+          } else {
+            // Dette kan skje hvis initial fetch av pokemonId feiler, eller viewPokemonById kalles med en ugyldig ID
+            errorMessage.textContent = `Kunne ikke laste Pokémon med ID: ${pokemonId}. Det kan hende ID-en ikke finnes eller det var et nettverksproblem.`;
+          }
+          errorMessage.style.color = "red";
+          mainContainer.append(errorMessage);
+        } else {
+          // pokemon er undefined (første lasting før noe er hentet)
+          const initialMessage = document.createElement("p");
+          initialMessage.textContent =
+            "Søk etter en Pokémon for å starte eller vent til standard Pokémon laster.";
+          mainContainer.append(initialMessage);
+        }
+      };
+
+      // Start med å laste default Pokémon
+      (async () => {
+        await fetchPokemon(pokemonId);
+        renderPage();
+      })();
+    </script>
+  </body>
+</html>

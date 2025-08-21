@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interaktive Lag</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      .container {
+        display: flex;
+        height: 100%;
+        overflow: hidden;
+      }
+      .panel {
+        flex: 1;
+        transition: flex 0.5s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        cursor: pointer;
+        overflow: hidden;
+      }
+      .panel .content {
+        padding: 20px;
+        text-align: center;
+      }
+      .panel:nth-child(1) {
+        background: linear-gradient(135deg, #1a0000, #000000);
+      }
+      .panel:nth-child(2) {
+        background: linear-gradient(135deg, #2b0000, #000000);
+      }
+      .panel:nth-child(3) {
+        background: linear-gradient(135deg, #3d0000, #000000);
+      }
+      .panel:nth-child(4) {
+        background: linear-gradient(135deg, #4f0000, #000000);
+      }
+      .panel:nth-child(5) {
+        background: linear-gradient(135deg, #610000, #000000);
+      }
+      .panel:nth-child(6) {
+        background: linear-gradient(135deg, #730000, #000000);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 1</h2>
+          <p>Dette er litt tilfeldig innhold for lag 1.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 2</h2>
+          <p>Her kan du plassere hva du vil i lag 2.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 3</h2>
+          <p>Noe eksempeltekst for lag 3.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 4</h2>
+          <p>Mer tilfeldig innhold for lag 4.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 5</h2>
+          <p>Ekstra tekst for å illustrere lag 5.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="content">
+          <h2>Lag 6</h2>
+          <p>Tilfeldig innhold for lag 6.</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      const panels = document.querySelectorAll(".panel");
+      panels.forEach((panel) => {
+        panel.addEventListener("click", () => {
+          panels.forEach((p) => (p.style.flex = "1"));
+          panel.style.flex = "5";
+        });
+      });
+    </script>
+  </body>
+</html>

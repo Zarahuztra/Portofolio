@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enkel Partikkel "Simulering" (IKKE SPH)</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      // Sceneoppsett
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.z = 30;
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Partikkelmateriale
+      const particleMaterial = new THREE.PointsMaterial({
+        color: 0x00aaff,
+        size: 0.5,
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending, // Fin effekt for "lysende" partikler
+      });
+
+      // Partikkelgeometri
+      const particleCount = 5000;
+      const particlesGeometry = new THREE.BufferGeometry();
+      const posArray = new Float32Array(particleCount * 3); // x, y, z for hver partikkel
+      const velArray = new Float32Array(particleCount * 3); // velocity x, y, z
+
+      for (let i = 0; i < particleCount; i++) {
+        // Startposisjon (litt spredt)
+        posArray[i * 3 + 0] = (Math.random() - 0.5) * 20; // x
+        posArray[i * 3 + 1] = Math.random() * 20 + 10; // y (start over)
+        posArray[i * 3 + 2] = (Math.random() - 0.5) * 10; // z
+
+        // Start-hastighet (litt tilfeldig nedover)
+        velArray[i * 3 + 0] = (Math.random() - 0.5) * 0.1;
+        velArray[i * 3 + 1] = (Math.random() - 0.5) * 0.1 - 0.1; // Mostly downwards
+        velArray[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+      }
+
+      particlesGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(posArray, 3)
+      );
+      const particleSystem = new THREE.Points(
+        particlesGeometry,
+        particleMaterial
+      );
+      scene.add(particleSystem);
+
+      // Enkel "gravitasjon" og grenser
+      const gravity = new THREE.Vector3(0, -0.01, 0);
+      const floorY = -15;
+      const restitution = 0.6; // Hvor mye sprett
+
+      // Animasjonsløkke
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const positions = particlesGeometry.attributes.position.array;
+
+        for (let i = 0; i < particleCount; i++) {
+          const ix = i * 3;
+          const iy = i * 3 + 1;
+          const iz = i * 3 + 2;
+
+          // Oppdater hastighet med gravitasjon
+          velArray[ix] += gravity.x;
+          velArray[iy] += gravity.y;
+          velArray[iz] += gravity.z;
+
+          // Oppdater posisjon med hastighet
+          positions[ix] += velArray[ix];
+          positions[iy] += velArray[iy];
+          positions[iz] += velArray[iz];
+
+          // Enkel kollisjon med "gulv"
+          if (positions[iy] < floorY) {
+            positions[iy] = floorY; // Sett tilbake på gulvet
+            velArray[iy] *= -restitution; // Snu og demp y-hastighet (sprett)
+
+            // Litt friksjon på x og z
+            velArray[ix] *= 0.9;
+            velArray[iz] *= 0.9;
+          }
+
+          // Reset partikler som går for langt unna (veldig enkel reset)
+          if (
+            positions[iy] > 50 ||
+            Math.abs(positions[ix]) > 30 ||
+            Math.abs(positions[iz]) > 20
+          ) {
+            positions[ix] = (Math.random() - 0.5) * 20;
+            positions[iy] = Math.random() * 20 + 10;
+            positions[iz] = (Math.random() - 0.5) * 10;
+            velArray[ix] = (Math.random() - 0.5) * 0.1;
+            velArray[iy] = (Math.random() - 0.5) * 0.1 - 0.1;
+            velArray[iz] = (Math.random() - 0.5) * 0.1;
+          }
+        }
+
+        particlesGeometry.attributes.position.needsUpdate = true; // Viktig!
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Håndter vindusstørrelse
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

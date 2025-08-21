@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Morph Loop with Color Shifts</title>
+    <style>
+      body {
+        background: #040004;
+        margin: 50px 0 0;
+      }
+      svg {
+        display: block;
+        margin: 0 auto;
+      }
+      /* hide the target shapes */
+      #lines {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 200">
+      <defs>
+        <radialGradient
+          gradientUnits="userSpaceOnUse"
+          cx="248.79"
+          cy="174.63"
+          r="203.25"
+          id="gradient-0"
+        >
+          <stop offset="0" style="stop-color: rgb(251, 52, 238)"></stop>
+          <stop offset="1" style="stop-color: rgb(53, 0, 122)"></stop>
+        </radialGradient>
+      </defs>
+
+      <!-- the morphing path -->
+      <path
+        id="line0"
+        d="M 45.54 174.63 L 452.05 174.63"
+        style="stroke-width: 4px; stroke: url(#gradient-0); fill: none"
+      ></path>
+
+      <!-- hidden shapes to morph into -->
+      <g id="lines">
+        <path
+          id="line1"
+          d="M44.85 173.87 C45.28 106.59 150.53 99.77 258.42 100 C357.05 100.21 451.2 117.91 451.36 174.55"
+          style="stroke: rgb(251, 211, 52); stroke-width: 4px; fill: none"
+        ></path>
+        <path
+          id="line2"
+          d="M83.49 66.91 C13.34 116.01 66.83 168.39 120.66 152.65 C161.46 140.72 189.61 120.25 216.81 70.81 C231.78 43.59 283.91 36.16 300 72.1 C327.87 134.35 367.66 158.19 408.06 154.51 C426.01 152.87 452.91 143.01 460.32 121.78"
+          style="stroke: rgb(254, 8, 8); stroke-width: 5px; fill: none"
+        ></path>
+        <path
+          id="line3"
+          d="M44.59 173.12 L141.23 24.32 L200 124.21 L238.73 24.96 L246.89 133.74 L276.29 100 L290.57 128.72 L325.18 58.49 L348.47 140 L380.09 57.2 L413.68 153.4 L431.34 90.3 L452.2 175.57"
+          style="
+            stroke: rgb(86, 255, 70);
+            stroke-width: 8px;
+            fill: none;
+            stroke-miterlimit: 5.64;
+          "
+        ></path>
+        <path
+          id="line4"
+          d="M330,100 A80,80 0 1,1 170,100 A80,80 0 1,1 330,100"
+          style="stroke: cyan; stroke-width: 6px; fill: none"
+        ></path>
+        <path
+          id="line5"
+          d="M250,20 L450,180 L50,180 Z"
+          style="stroke: magenta; stroke-width: 6px; fill: none"
+        ></path>
+        <path
+          id="line6"
+          d="M50,150 L150,50 L250,150 L350,50 L450,150"
+          style="stroke: yellow; stroke-width: 6px; fill: none"
+        ></path>
+      </g>
+    </svg>
+
+    <!-- GSAP core + MorphSVG -->
+    <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+    <script src="https://unpkg.com/gsap@3/dist/MorphSVGPlugin.min.js"></script>
+    <script>
+      gsap.registerPlugin(MorphSVGPlugin);
+
+      const colors = [
+        "rgb(251,211,52)", // gold
+        "rgb(254,8,8)", // red
+        "rgb(86,255,70)", // lime
+        "cyan",
+        "magenta",
+        "yellow",
+        "url(#gradient-0)", // back to gradient
+      ];
+
+      const shapes = [
+        "#line1",
+        "#line2",
+        "#line3",
+        "#line4",
+        "#line5",
+        "#line6",
+        "#line0",
+      ];
+
+      // build an infinite timeline
+      const tl = gsap.timeline({
+        repeat: -1,
+        defaults: { duration: 1.2, ease: "elastic(1,0.5)" },
+      });
+
+      shapes.forEach((selector, i) => {
+        tl.to("#line0", {
+          morphSVG: selector,
+          stroke: colors[i],
+        });
+      });
+    </script>
+  </body>
+</html>

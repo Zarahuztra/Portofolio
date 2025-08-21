@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Exploding Word Looping</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #222;
+        overflow: hidden;
+      }
+
+      #container {
+        position: relative;
+        width: 800px;
+        height: 200px;
+      }
+
+      .piece {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transform-origin: center center;
+        will-change: transform, opacity;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <img class="piece" src="textbits/img1.png" alt="" />
+      <img class="piece" src="textbits/img2.png" alt="" />
+      <img class="piece" src="textbits/img3.png" alt="" />
+      <img class="piece" src="textbits/img4.png" alt="" />
+      <img class="piece" src="textbits/img5.png" alt="" />
+      <img class="piece" src="textbits/img6.png" alt="" />
+      <img class="piece" src="textbits/img7.png" alt="" />
+      <img class="piece" src="textbits/img8.png" alt="" />
+      <img class="piece" src="textbits/img9.png" alt="" />
+      <img class="piece" src="textbits/img10.png" alt="" />
+      <img class="piece" src="textbits/img11.png" alt="" />
+      <img class="piece" src="textbits/img12.png" alt="" />
+      <img class="piece" src="textbits/img13.png" alt="" />
+    </div>
+
+    <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
+    <script>
+      const pieces = gsap.utils.toArray(".piece");
+      gsap.set(pieces, { transformOrigin: "50% 50%" });
+
+      const tl = gsap.timeline({
+        defaults: { duration: 1, ease: "power3.inOut" },
+        repeat: -1, // loop forever
+        repeatDelay: 2, // wait 2s before each repeat
+      });
+
+      tl.to({}, { duration: 1 }) // initial hold
+        .to(pieces, {
+          // explode
+          x: () => gsap.utils.random(-600, 600),
+          y: () => gsap.utils.random(-400, 400),
+          rotation: () => gsap.utils.random(-360, 360),
+          opacity: 0,
+          scale: 0.3,
+          stagger: { each: 0.02, from: "center" },
+        })
+        .to({}, { duration: 0.5 }) // mid-air pause
+        .to(pieces, {
+          // reassemble
+          x: 0,
+          y: 0,
+          rotation: 0,
+          opacity: 1,
+          scale: 1,
+          duration: 1.5,
+          ease: "elastic.out(1,0.5)",
+        });
+    </script>
+  </body>
+</html>

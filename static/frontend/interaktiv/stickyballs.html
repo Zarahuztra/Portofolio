@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metaball Fluid Simulation with Sticky Behavior</title>
+    <!-- Paper.js library -->
+    <script src="https://unpkg.com/paper@0.12.15/dist/paper-full.min.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #myCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="myCanvas" resize></canvas>
+
+    <script>
+      // Metaball fluid connection simulation with sticky backballs
+      paper.install(window);
+      paper.setup(document.getElementById("myCanvas"));
+
+      // Configuration
+      const BALL_RADIUS = 50;
+      const LARGE_BALL_RADIUS = 100;
+      const HANDLE_LEN_RATE = 2.4;
+      const MAX_DISTANCE = 300;
+      const SMOOTHING = 0.5;
+      const STICK_FORCE = 0.1; // strength of sticking behavior
+      const RESTORE_RATE = 0.05; // rate at which balls return to their original positions
+
+      // Initial ball positions
+      const ballPositions = [
+        [255, 129],
+        [610, 73],
+        [486, 363],
+        [117, 459],
+        [484, 726],
+        [843, 306],
+        [789, 615],
+        [1049, 82],
+        [1292, 428],
+        [1117, 733],
+        [1352, 86],
+        [92, 798],
+      ];
+
+      // Store original positions for restoration
+      const originalPositions = ballPositions.map((pos) => new Point(pos));
+
+      // Create static circles
+      const staticCircles = ballPositions.map(
+        (pos) =>
+          new Path.Circle({
+            center: pos,
+            radius: BALL_RADIUS,
+            fillColor: "black",
+          })
+      );
+
+      // Create large, movable circle
+      const largeCircle = new Path.Circle({
+        center: [676, 433],
+        radius: LARGE_BALL_RADIUS,
+        fillColor: "black",
+      });
+
+      // Combine for metaball calculations
+      const circles = staticCircles.concat(largeCircle);
+
+      // Group to hold metaball connections
+      const connections = new Group();
+
+      // Draw initial connections
+      generateConnections();
+
+      // Update on mouse move
+      view.onMouseMove = (event) => {
+        largeCircle.position = event.point;
+        generateConnections();
+      };
+
+      // Stick and relax static circles each frame
+      view.onFrame = (event) => {
+        staticCircles.forEach((circle, idx) => {
+          const dir = largeCircle.position.subtract(circle.position);
+          const d = dir.length;
+          // Apply stick if within range
+          if (d < MAX_DISTANCE) {
+            const stick = dir
+              .normalize()
+              .multiply(STICK_FORCE * (1 - d / MAX_DISTANCE));
+            circle.position = circle.position.add(stick);
+          }
+          // Restore towards original position
+          const home = originalPositions[idx];
+          const back = home.subtract(circle.position).multiply(RESTORE_RATE);
+          circle.position = circle.position.add(back);
+        });
+        generateConnections();
+      };
+
+      // Main: compute and render metaball connections
+      function generateConnections() {
+        connections.removeChildren();
+        for (let i = 0; i < circles.length; i++) {
+          for (let j = 0; j < i; j++) {
+            const path = createMetaball(circles[i], circles[j]);
+            if (path) connections.addChild(path);
+          }
+        }
+      }
+
+      // Create a metaball connection between two circles
+      function createMetaball(c1, c2) {
+        const center1 = c1.position;
+        const center2 = c2.position;
+        let r1 = c1.bounds.width / 2;
+        let r2 = c2.bounds.width / 2;
+        const d = center1.getDistance(center2);
+
+        if (
+          r1 === 0 ||
+          r2 === 0 ||
+          d > MAX_DISTANCE ||
+          d <= Math.abs(r1 - r2)
+        ) {
+          return null;
+        }
+
+        const u1 =
+          d < r1 + r2
+            ? Math.acos((r1 * r1 + d * d - r2 * r2) / (2 * r1 * d))
+            : 0;
+        const u2 =
+          d < r1 + r2
+            ? Math.acos((r2 * r2 + d * d - r1 * r1) / (2 * r2 * d))
+            : 0;
+
+        const angleBetween = (center2.subtract(center1).angle * Math.PI) / 180;
+        const angleDiff = Math.acos((r1 - r2) / d);
+        const pi2 = Math.PI / 2;
+
+        // Anchor angles
+        const angles = {
+          a1: angleBetween + u1 + (angleDiff - u1) * SMOOTHING,
+          b1: angleBetween - u1 - (angleDiff - u1) * SMOOTHING,
+          a2:
+            angleBetween +
+            Math.PI -
+            u2 -
+            (Math.PI - u2 - angleDiff) * SMOOTHING,
+          b2:
+            angleBetween -
+            Math.PI +
+            u2 +
+            (Math.PI - u2 - angleDiff) * SMOOTHING,
+        };
+
+        // Points on circles
+        const p1 = {
+          a: getVector(angles.a1, r1).add(center1),
+          b: getVector(angles.b1, r1).add(center1),
+        };
+        const p2 = {
+          a: getVector(angles.a2, r2).add(center2),
+          b: getVector(angles.b2, r2).add(center2),
+        };
+
+        // Handle length scaling
+        const totalR = r1 + r2;
+        let d2 = Math.min(
+          SMOOTHING * HANDLE_LEN_RATE,
+          p1.a.getDistance(p2.a) / totalR
+        );
+        if (d < r1 + r2) d2 *= Math.min(1, (d * 2) / totalR);
+
+        r1 *= d2;
+        r2 *= d2;
+
+        // Build path
+        const path = new Path({
+          segments: [p1.a, p2.a, p2.b, p1.b],
+          closed: true,
+          fillColor: "black",
+        });
+        const seg = path.segments;
+
+        seg[0].handleOut = getVector(angles.a1 - pi2, r1);
+        seg[1].handleIn = getVector(angles.a2 + pi2, r2);
+        seg[2].handleOut = getVector(angles.b2 - pi2, r2);
+        seg[3].handleIn = getVector(angles.b1 + pi2, r1);
+
+        return path;
+      }
+
+      // Utility: return vector from angle (radians) and length
+      function getVector(radians, length) {
+        return new Point({
+          angle: (radians * 180) / Math.PI,
+          length: length,
+        });
+      }
+    </script>
+  </body>
+</html>

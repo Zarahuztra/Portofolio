@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mandelbrot fraktal-zoom – interaktiv</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #161822;
+      }
+      body {
+        width: 100vw;
+        height: 100vh;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        color: #fff;
+        opacity: 0.19;
+        font-family: sans-serif;
+        font-size: 1.07em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="fraktal"></canvas>
+    <div class="hint">
+      Dra for å flytte. Scroll for å zoome. Mandelbrot fraktal-univers 🌌
+    </div>
+    <script>
+      const canvas = document.getElementById("fraktal");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const gl = canvas.getContext("webgl");
+
+      function compileShader(type, src) {
+        let s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+          throw gl.getShaderInfoLog(s);
+        return s;
+      }
+
+      const vsh = `
+attribute vec2 a;
+varying vec2 uv;
+void main() {
+  uv = 0.5*a+0.5;
+  gl_Position = vec4(a,0,1);
+}`;
+
+      const fsh = `
+precision highp float;
+varying vec2 uv;
+uniform float time;
+uniform vec2 center;
+uniform float zoom;
+uniform vec2 res;
+void main() {
+  float aspect = res.x/res.y;
+  vec2 c = (uv-0.5)*vec2(aspect,1.0)*zoom + center;
+  vec2 z = c;
+  int maxIter = 180;
+  float m = 0.0;
+  bool escaped = false;
+  for(int i=0;i<400;i++) {
+    if(i > maxIter) break;
+    z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+    if(dot(z,z)>9.0 && !escaped) {
+      m = float(i) - log2(log2(dot(z,z)))/log2(2.0);
+      escaped = true;
+      break;
+    }
+  }
+  float t = m;
+  vec3 pal = 0.5 + 0.5*cos(0.23*t + vec3(0.0,1.5,3.2) + time*0.17);
+  if(m == 0.0) pal = vec3(0.09,0.02,0.10) + 0.04*length(c);
+  gl_FragColor = vec4(pal,1.0);
+}
+`;
+
+      let prog = gl.createProgram();
+      gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vsh));
+      gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fsh));
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
+
+      let buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+      let loc = gl.getAttribLocation(prog, "a");
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+      // Uniforms
+      let utime = gl.getUniformLocation(prog, "time");
+      let ucenter = gl.getUniformLocation(prog, "center");
+      let uzoom = gl.getUniformLocation(prog, "zoom");
+      let ures = gl.getUniformLocation(prog, "res");
+
+      // Interaktiv kontroll
+      let center = { x: -0.75, y: 0.0 },
+        zoom = 2.5;
+      let drag = false,
+        last = { x: 0, y: 0 },
+        start = { x: 0, y: 0 };
+      canvas.onmousedown = (e) => {
+        drag = true;
+        last.x = e.clientX;
+        last.y = e.clientY;
+        start.x = center.x;
+        start.y = center.y;
+      };
+      window.onmousemove = (e) => {
+        if (!drag) return;
+        let dx =
+          ((e.clientX - last.x) / canvas.width) *
+          zoom *
+          (canvas.width / canvas.height);
+        let dy = ((e.clientY - last.y) / canvas.height) * zoom;
+        center.x = start.x - dx;
+        center.y = start.y + dy;
+      };
+      window.onmouseup = () => {
+        drag = false;
+      };
+
+      canvas.onwheel = (e) => {
+        let s = e.deltaY > 0 ? 1.11 : 0.9;
+        let mx = e.offsetX / canvas.width - 0.5;
+        let my = 0.5 - e.offsetY / canvas.height;
+        center.x += mx * zoom * 0.37 * (1 - s);
+        center.y += my * zoom * 0.37 * (1 - s);
+        zoom *= s;
+        e.preventDefault();
+      };
+
+      window.addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+
+      // Animate!
+      function draw() {
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(prog);
+        gl.uniform1f(utime, performance.now() / 1000);
+        gl.uniform2f(ucenter, center.x, center.y);
+        gl.uniform1f(uzoom, zoom);
+        gl.uniform2f(ures, canvas.width, canvas.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(draw);
+      }
+      draw();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pulserende halo / energikule</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #181a23;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #b2faff;
+        font-family: sans-serif;
+        opacity: 0.37;
+        font-size: 1em;
+        pointer-events: none;
+        text-shadow: 0 0 14px #a2d9ff;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="halo"></canvas>
+    <div class="hint">Pulserende energikuler med glow</div>
+    <script>
+      const canvas = document.getElementById("halo");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        // Sikre at canvas aldri blir null!
+        canvas.width = Math.max(32, window.innerWidth);
+        canvas.height = Math.max(32, window.innerHeight);
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // -- HALO PARAMS --
+      const HALOS = 3;
+      let halos = [];
+      for (let i = 0; i < HALOS; i++) {
+        halos.push({
+          x: Math.random() * 0.6 + 0.2, // [0.2, 0.8]
+          y: Math.random() * 0.5 + 0.28, // [0.28, 0.78]
+          r: 70 + Math.random() * 110,
+          color1: 180 + Math.random() * 170,
+          color2: 120 + Math.random() * 120,
+          pulse: 0.8 + Math.random() * 1.1,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+
+      function isValid(...vals) {
+        return vals.every(
+          (v) => typeof v === "number" && isFinite(v) && !isNaN(v)
+        );
+      }
+
+      function drawHalo(x, y, r, t, h1, h2, glow = 1) {
+        if (!isValid(x, y, r) || r < 2) return;
+        let hue = h1 + (h2 - h1) * Math.sin(t * 0.42);
+        let sat = 62 + 18 * Math.sin(t * 0.51 + h2);
+        let light = 52 + 21 * Math.sin(t * 0.33 + h1);
+
+        // Flere lag for “mykt” lys
+        for (let i = 6; i >= 0; i--) {
+          let rr = r * (1 + 0.14 * i + 0.06 * Math.sin(t * 0.6 + i));
+          if (!isValid(rr) || rr < 1) continue;
+          let alpha = 0.07 + 0.08 * i;
+          let grad = ctx.createRadialGradient(x, y, rr * 0.13, x, y, rr);
+          grad.addColorStop(
+            0,
+            `hsla(${hue},${sat + 6 * i}%,${Math.min(
+              99,
+              light + 8 * i
+            )}%,${Math.min(1, alpha * glow)})`
+          );
+          grad.addColorStop(
+            0.25,
+            `hsla(${hue},${sat + 2 * i}%,${Math.min(93, light + 3 * i)}%,${
+              0.16 * glow
+            })`
+          );
+          grad.addColorStop(1, `hsla(${hue},55%,20%,0)`);
+          ctx.beginPath();
+          ctx.arc(x, y, rr, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Indre kjernen
+        let rcore = r * 0.42 + Math.sin(t * 0.72) * r * 0.14;
+        if (!isValid(rcore) || rcore < 1) return;
+        let grad2 = ctx.createRadialGradient(x, y, 0, x, y, rcore);
+        grad2.addColorStop(0, `hsla(${hue},98%,95%,0.38)`);
+        grad2.addColorStop(0.65, `hsla(${hue},97%,82%,0.23)`);
+        grad2.addColorStop(1, `hsla(${hue},87%,36%,0.04)`);
+        ctx.beginPath();
+        ctx.arc(x, y, rcore, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = grad2;
+        ctx.fill();
+      }
+
+      function animate(ts) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let w = canvas.width,
+          h = canvas.height;
+
+        for (let i = 0; i < halos.length; i++) {
+          let halo = halos[i];
+          let t = ts * 0.001 * halo.pulse + halo.phase;
+          let rr =
+            halo.r * (1 + 0.11 * Math.sin(t * 1.18 + Math.sin(t * 0.33)));
+          let glow = 0.95 + 0.43 * Math.sin(t * 0.96 + 0.7);
+          drawHalo(
+            halo.x * w,
+            halo.y * h,
+            rr,
+            t,
+            halo.color1,
+            halo.color2,
+            glow
+          );
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF" />
+    <title>Raycaster med infoboks ved musa</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: sans-serif;
+      }
+      canvas {
+        display: block;
+      }
+      #info {
+        position: absolute;
+        display: none;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 14px;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 1s ease-out;
+        will-change: opacity;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.121.0/examples/js/controls/OrbitControls.js"></script>
+  </head>
+  <body>
+    <div id="info">Klikk på en boks for å vise info</div>
+    <script>
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xa3d9ff);
+
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(5, 5, 10);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(10, 10, 10);
+      scene.add(dirLight);
+
+      const boxes = [];
+      const colors = [0xff5555, 0x55ff55, 0x5555ff, 0xffff55];
+
+      for (let i = 0; i < 4; i++) {
+        const box = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshStandardMaterial({ color: colors[i] })
+        );
+        box.position.set(i * 2, 0.5, 0);
+        box.userData = {
+          id: `Boks ${i + 1}`,
+          originalColor: colors[i],
+          info: `Dette er boks ${i + 1} med fargekode ${colors[i].toString(
+            16
+          )}`,
+        };
+        scene.add(box);
+        boxes.push(box);
+      }
+
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const infoPanel = document.getElementById("info");
+
+      let followMouse = false;
+      let mouseTimeout;
+
+      window.addEventListener("click", (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(boxes);
+
+        if (intersects.length > 0) {
+          const hit = intersects[0].object;
+          hit.material.color.set(Math.random() * 0xffffff);
+
+          infoPanel.innerHTML = `
+          <strong>${hit.userData.id}</strong><br>
+          Posisjon: x=${hit.position.x.toFixed(2)}, y=${hit.position.y.toFixed(
+            2
+          )}<br>
+          ${hit.userData.info}
+        `;
+          infoPanel.style.display = "block";
+          followMouse = true;
+
+          // Plasser første gang
+          infoPanel.style.left = event.clientX + 10 + "px";
+          infoPanel.style.top = event.clientY - 40 + "px";
+
+          clearTimeout(mouseTimeout);
+          infoPanel.style.opacity = "1";
+          infoPanel.style.display = "block";
+          followMouse = true;
+
+          mouseTimeout = setTimeout(() => {
+            infoPanel.style.opacity = "0";
+
+            setTimeout(() => {
+              infoPanel.style.display = "none";
+            }, 1000); // vent på fade (samme som CSS transition)
+          }, 2000); // vis i 2 sek før fade starter
+          // stopper etter 1 sekund
+        }
+      });
+
+      window.addEventListener("mousemove", (event) => {
+        if (followMouse) {
+          infoPanel.style.left = event.clientX + 10 + "px";
+          infoPanel.style.top = event.clientY - 40 + "px";
+        }
+      });
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

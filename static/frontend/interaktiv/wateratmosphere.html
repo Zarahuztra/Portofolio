@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Ocean with Clouds & Moonlight</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      #ui {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 4px;
+        font-family: sans-serif;
+      }
+      #ui label {
+        display: block;
+        margin-bottom: 4px;
+      }
+      #ui select {
+        width: 150px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="ui">
+      <label for="preset">Atmosphere & Water:</label>
+      <select id="preset">
+        <option value="hazy">Hazy Morning</option>
+        <option value="sunrise">Early Sunrise</option>
+        <option value="evening">Summer Evening</option>
+        <option value="night">Starry Night</option>
+        <option value="bright">Bright Day</option>
+        <option value="moonlit">Moonlit Night</option>
+      </select>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Water.js"></script>
+
+    <script id="cloudShader" type="x-shader/x-fragment">
+      uniform float time;
+      varying vec2 vUv;
+      // Simple Gaussian-like noise for clouds
+      float noise(vec2 p) {
+        return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453);
+      }
+      void main() {
+        vec2 uv = vUv * 4.0;
+        float n = noise(uv + time * 0.05);
+        float clouds = smoothstep(0.4, 0.5, n);
+        gl_FragColor = vec4(vec3(1.0), clouds * 0.5);
+      }
+    </script>
+
+    <script>
+      const container = document.getElementById("container");
+      const scene = new THREE.Scene();
+
+      // CAMERA & RENDERER
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        1,
+        20000
+      );
+      camera.position.set(30, 30, 100);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      // CONTROLS
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.maxPolarAngle = Math.PI * 0.495;
+      controls.target.set(0, 10, 0);
+      controls.minDistance = 40;
+      controls.maxDistance = 200;
+      controls.update();
+
+      // SKY
+      const sky = new THREE.Sky();
+      sky.scale.setScalar(450000);
+      scene.add(sky);
+      const skyUniforms = sky.material.uniforms;
+      const sun = new THREE.Vector3();
+
+      // LIGHTS
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+      scene.add(hemi);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      scene.add(dirLight);
+
+      // WATER
+      const waterNormals = new THREE.TextureLoader().load(
+        "https://threejs.org/examples/textures/waternormals.jpg",
+        (tex) => {
+          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(1, 1);
+        }
+      );
+      const water = new THREE.Water(
+        new THREE.PlaneBufferGeometry(10000, 10000),
+        {
+          textureWidth: 512,
+          textureHeight: 512,
+          waterNormals,
+          alpha: 1.0,
+          sunDirection: new THREE.Vector3(),
+          sunColor: 0xffffff,
+          waterColor: 0x001e0f,
+          distortionScale: 10,
+          fog: true,
+        }
+      );
+      water.rotation.x = -Math.PI / 2;
+      scene.add(water);
+
+      // CLOUDS LAYER
+      const cloudGeo = new THREE.PlaneBufferGeometry(12000, 12000);
+      const cloudMat = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 } },
+        transparent: true,
+        depthWrite: false,
+        fragmentShader: document.getElementById("cloudShader").textContent,
+        vertexShader:
+          "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      });
+      const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+      clouds.rotation.x = -Math.PI / 2;
+      clouds.position.y = 200;
+      scene.add(clouds);
+
+      // PRESETS INCLUDING MOONLIT
+      const presets = {
+        hazy: {
+          turbidity: 12,
+          ray: 1.5,
+          mie: 0.005,
+          g: 0.7,
+          elev: 15,
+          az: 180,
+          hemi: 0.5,
+          sunInt: 0.8,
+          fogCol: 0xacddef,
+          fogDen: 0.002,
+          waterCol: 0x334455,
+          dist: 8,
+          sunCol: 0x8899aa,
+        },
+        sunrise: {
+          turbidity: 8,
+          ray: 2.5,
+          mie: 0.01,
+          g: 0.6,
+          elev: 30,
+          az: 90,
+          hemi: 0.7,
+          sunInt: 1.0,
+          fogCol: 0xffd1a4,
+          fogDen: 0.001,
+          waterCol: 0x553311,
+          dist: 6,
+          sunCol: 0xffaa77,
+        },
+        evening: {
+          turbidity: 6,
+          ray: 2.0,
+          mie: 0.007,
+          g: 0.8,
+          elev: 5,
+          az: 200,
+          hemi: 0.4,
+          sunInt: 0.6,
+          fogCol: 0xffb2c2,
+          fogDen: 0.002,
+          waterCol: 0x221133,
+          dist: 12,
+          sunCol: 0x444477,
+        },
+        night: {
+          turbidity: 2,
+          ray: 0.5,
+          mie: 0.001,
+          g: 0.5,
+          elev: 2,
+          az: 180,
+          hemi: 0.2,
+          sunInt: 0.1,
+          fogCol: 0x000022,
+          fogDen: 0.003,
+          waterCol: 0x000011,
+          dist: 4,
+          sunCol: 0x222244,
+        },
+        bright: {
+          turbidity: 10,
+          ray: 3.0,
+          mie: 0.005,
+          g: 0.8,
+          elev: 60,
+          az: 0,
+          hemi: 1.0,
+          sunInt: 1.5,
+          fogCol: 0xffffff,
+          fogDen: 0.0005,
+          waterCol: 0x336677,
+          dist: 10,
+          sunCol: 0x99ccff,
+        },
+        moonlit: {
+          turbidity: 1,
+          ray: 0.2,
+          mie: 0.0005,
+          g: 0.5,
+          elev: 5,
+          az: 220,
+          hemi: 0.1,
+          sunInt: 0.2,
+          fogCol: 0x001022,
+          fogDen: 0.002,
+          waterCol: 0x001133,
+          dist: 4,
+          sunCol: 0xddddff,
+        },
+      };
+
+      function applyPreset(k) {
+        const p = presets[k];
+        // sky
+        skyUniforms["turbidity"].value = p.turbidity;
+        skyUniforms["rayleigh"].value = p.ray;
+        skyUniforms["mieCoefficient"].value = p.mie;
+        skyUniforms["mieDirectionalG"].value = p.g;
+        const phi = THREE.MathUtils.degToRad(90 - p.elev),
+          theta = THREE.MathUtils.degToRad(p.az);
+        sun.setFromSphericalCoords(1, phi, theta);
+        sky.material.uniforms["sunPosition"].value.copy(sun);
+        // lights
+        dirLight.position.copy(sun).multiplyScalar(100);
+        dirLight.intensity = p.sunInt;
+        dirLight.color.setHex(p.sunCol);
+        hemi.intensity = p.hemi;
+        // fog
+        scene.fog = new THREE.FogExp2(p.fogCol, p.fogDen);
+        renderer.setClearColor(p.fogCol);
+        // water
+        water.material.uniforms["sunDirection"].value.copy(sun).normalize();
+        water.material.uniforms["waterColor"].value.setHex(p.waterCol);
+        water.material.uniforms["sunColor"].value.setHex(p.sunCol);
+        water.material.uniforms["distortionScale"].value = p.dist;
+      }
+
+      document
+        .getElementById("preset")
+        .addEventListener("change", (e) => applyPreset(e.target.value));
+      applyPreset("hazy");
+
+      // ANIMATION
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        water.material.uniforms["time"].value = t;
+        cloudMat.uniforms.time.value = t;
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

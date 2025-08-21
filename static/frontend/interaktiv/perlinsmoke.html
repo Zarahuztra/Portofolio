@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flow field røyk – Partikkelsverm med Perlin noise</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #181d23;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        background: #181d23;
+      }
+      .hint {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        color: #fff;
+        opacity: 0.15;
+        font-family: sans-serif;
+        font-size: 1.07em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="flow"></canvas>
+    <div class="hint">Røyk-partikler: Dra musen for å forstyrre flowfeltet</div>
+    <script>
+      // ----------- Enkel Perlin noise -------------
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      function fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+      }
+      const grad = [
+        [1, 1],
+        [-1, 1],
+        [1, -1],
+        [-1, -1],
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ];
+      const perm = Array.from({ length: 512 }, (_, i) => i % 256).sort(
+        () => Math.random() - 0.5
+      );
+
+      function perlin2(x, y) {
+        let X = Math.floor(x) & 255,
+          Y = Math.floor(y) & 255;
+        x -= Math.floor(x);
+        y -= Math.floor(y);
+        let u = fade(x),
+          v = fade(y);
+        let aa = perm[X + perm[Y]] % 8,
+          ab = perm[X + perm[Y + 1]] % 8,
+          ba = perm[X + 1 + perm[Y]] % 8,
+          bb = perm[X + 1 + perm[Y + 1]] % 8;
+        let gaa = grad[aa],
+          gab = grad[ab],
+          gba = grad[ba],
+          gbb = grad[bb];
+        let va = gaa[0] * x + gaa[1] * y,
+          vb = gba[0] * (x - 1) + gba[1] * y,
+          vc = gab[0] * x + gab[1] * (y - 1),
+          vd = gbb[0] * (x - 1) + gbb[1] * (y - 1);
+        return lerp(lerp(va, vb, u), lerp(vc, vd, u), v);
+      }
+
+      // --------------- Partikkel-system ---------------
+      const canvas = document.getElementById("flow");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const ctx = canvas.getContext("2d");
+
+      const N = 2000; // Antall partikler
+      let particles = [];
+      for (let i = 0; i < N; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: 0,
+          vy: 0,
+          hue: 180 + Math.random() * 60,
+          age: Math.random() * 300,
+        });
+      }
+
+      let mouse = { x: 0, y: 0, down: false };
+      canvas.onmousedown = (e) => {
+        mouse.down = true;
+        mouse.x = e.offsetX;
+        mouse.y = e.offsetY;
+      };
+      canvas.onmousemove = (e) => {
+        mouse.x = e.offsetX;
+        mouse.y = e.offsetY;
+      };
+      window.onmouseup = () => {
+        mouse.down = false;
+      };
+
+      function flowField(x, y, t) {
+        // Returnerer vinkel i radianer, basert på Perlin noise
+        let scale = 0.0012;
+        let n = perlin2(x * scale + t * 0.021, y * scale + t * 0.018);
+        if (mouse.down) {
+          // Lag små forstyrrelser rundt musen
+          let dx = x - mouse.x,
+            dy = y - mouse.y,
+            dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 100) n += 0.12 * Math.sin(dist * 0.23 + t * 0.3);
+        }
+        return n * Math.PI * 2.1;
+      }
+
+      function animate() {
+        ctx.globalAlpha = 0.12; // “smøre” spor (lav = mer “røyk”)
+        ctx.fillStyle = "#181d23";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 0.98;
+
+        let t = performance.now() / 1000;
+        for (let p of particles) {
+          // Finn vektor fra flowfelt
+          let angle = flowField(p.x, p.y, t);
+          let speed = 1.2 + 0.9 * Math.sin(t * 0.6 + p.hue);
+          p.vx = lerp(p.vx, Math.cos(angle) * speed, 0.2);
+          p.vy = lerp(p.vy, Math.sin(angle) * speed, 0.2);
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Tegn røyksky (samme som før)
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(Math.atan2(p.vy, p.vx));
+          let sz = Math.max(
+            1.1,
+            Math.abs(0.5 + 2.8 * Math.sin(0.002 * t + p.hue))
+          );
+          ctx.globalAlpha = 0.19 + 0.1 * Math.sin(0.013 * p.hue + t);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 3 + sz, 1.4 + sz * 0.8, 0, 0, 2 * Math.PI);
+          ctx.fillStyle = `hsla(${p.hue},34%,84%,1)`;
+          ctx.fill();
+          ctx.restore();
+
+          // Resirkuler partikkel hvis den har blitt “gammel”
+          if (p.age > 700 || isNaN(p.x) || isNaN(p.y)) {
+            p.x = Math.random() * canvas.width;
+            p.y = Math.random() * canvas.height;
+            p.vx = 0;
+            p.vy = 0;
+            p.hue = 180 + Math.random() * 60;
+            p.age = Math.random() * 60;
+          }
+
+          // Hold partikkel innenfor skjermen
+          if (p.x < 0) p.x += canvas.width;
+          if (p.x > canvas.width) p.x -= canvas.width;
+          if (p.y < 0) p.y += canvas.height;
+          if (p.y > canvas.height) p.y -= canvas.height;
+
+          p.hue += 0.015 + 0.011 * Math.sin(t * 0.08 + p.age);
+          p.age += 0.14;
+        }
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      window.addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fysikk-partikler med interaksjon og krefter</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #0d111a;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        font-family: sans-serif;
+        opacity: 0.19;
+        font-size: 1.15em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div class="hint">Hold museknappen for å trekke eller skyve partiklene</div>
+    <script>
+      // -------- Settings --------
+      const PARTICLES = 900;
+      const INTERACTION_RADIUS = 60; // hvor nært for "flocking"
+      const INTERACTION_STRENGTH = 0.09;
+      const CENTER_FORCE = 0.0018; // sentripetalkraft mot senter
+      const REPULSION = 0.11; // hvor mye de skyver hverandre bort
+      const DAMPING = 0.995; // fartsdemping
+      const GRAVITY = 0; // kan settes til f.eks 0.0008 for mer "bouncing"
+      const MOUSE_STRENGTH = 0.025; // tiltrekking/skyv fra mus
+      const MOUSE_REPEL = false; // sett til true for frastøting fra mus
+      const COLORFUL = true; // falsk = hvit
+      // --------------------------
+
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      // Partikler
+      let particles = [];
+      for (let i = 0; i < PARTICLES; i++) {
+        const theta = Math.random() * 2 * Math.PI;
+        const radius =
+          90 +
+          (Math.random() * 0.4 * Math.min(canvas.width, canvas.height)) / 2;
+        particles.push({
+          x: canvas.width / 2 + Math.cos(theta) * radius,
+          y: canvas.height / 2 + Math.sin(theta) * radius,
+          vx: (Math.random() - 0.5) * 1.7,
+          vy: (Math.random() - 0.5) * 1.7,
+          color: COLORFUL
+            ? `hsl(${Math.floor(210 + 70 * Math.random())},80%,${
+                62 + 14 * Math.random()
+              }%)`
+            : "#fff",
+        });
+      }
+
+      // Musinteraksjon
+      let mouse = { x: 0, y: 0, down: false };
+      canvas.addEventListener("mousedown", (e) => {
+        mouse.down = true;
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener("mouseup", () => {
+        mouse.down = false;
+      });
+
+      function animate() {
+        let w = canvas.width,
+          h = canvas.height;
+
+        // Fade-out "trails"
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = "#0d111a";
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+
+        // Oppdater og tegn partikler
+        for (let i = 0; i < PARTICLES; i++) {
+          let p = particles[i];
+
+          // Sentripetal ("gravity" mot senter)
+          let dx = w / 2 - p.x,
+            dy = h / 2 - p.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+          let force = CENTER_FORCE * dist;
+          p.vx += (dx / dist) * force;
+          p.vy += (dy / dist) * force;
+
+          // Enkel "flocking" / frastøtning
+          let fx = 0,
+            fy = 0,
+            count = 0;
+          for (let j = 0; j < PARTICLES; j++)
+            if (i !== j) {
+              let q = particles[j];
+              let dxi = p.x - q.x,
+                dyi = p.y - q.y;
+              let d = Math.sqrt(dxi * dxi + dyi * dyi) + 0.001;
+              if (d < INTERACTION_RADIUS) {
+                // Frastøtning
+                fx += (dxi / d) * ((INTERACTION_RADIUS - d) * REPULSION);
+                fy += (dyi / d) * ((INTERACTION_RADIUS - d) * REPULSION);
+                count++;
+              }
+            }
+          // Snitt av "flocking force"
+          if (count > 0) {
+            fx /= count;
+            fy /= count;
+            p.vx += fx * INTERACTION_STRENGTH;
+            p.vy += fy * INTERACTION_STRENGTH;
+          }
+
+          // Musinteraksjon (hold museknappen inne)
+          if (mouse.down) {
+            let mdx = mouse.x - p.x,
+              mdy = mouse.y - p.y;
+            let mdist = Math.sqrt(mdx * mdx + mdy * mdy) + 0.01;
+            let mforce = MOUSE_STRENGTH / (0.16 + 0.001 * mdist);
+            if (MOUSE_REPEL) mforce *= -1;
+            p.vx += (mdx / mdist) * mforce;
+            p.vy += (mdy / mdist) * mforce;
+          }
+
+          // Tyngdekraft
+          p.vy += GRAVITY;
+
+          // Fartsdemping
+          p.vx *= DAMPING;
+          p.vy *= DAMPING;
+
+          // Beveg
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Veggkollisjon (wrap rundt)
+          if (p.x < 0) p.x += w;
+          if (p.x > w) p.x -= w;
+          if (p.y < 0) p.y += h;
+          if (p.y > h) p.y -= h;
+
+          // Tegn partikkel
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2.35, 0, 2 * Math.PI);
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = COLORFUL ? p.color : "#fff";
+          ctx.shadowBlur = 7;
+          ctx.globalAlpha = 0.85;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

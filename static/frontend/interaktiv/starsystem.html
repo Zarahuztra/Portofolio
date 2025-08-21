@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Generativt solsystem/univers</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #0b0f16;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #ffe89a;
+        font-family: sans-serif;
+        opacity: 0.37;
+        font-size: 1em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="universe"></canvas>
+    <div class="hint">Klikk for nytt solsystem/univers 🌌</div>
+    <script>
+      const canvas = document.getElementById("universe");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = Math.max(32, window.innerWidth);
+        canvas.height = Math.max(32, window.innerHeight);
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      function isValid(...vals) {
+        return vals.every(
+          (v) => typeof v === "number" && isFinite(v) && !isNaN(v)
+        );
+      }
+
+      let universe = null;
+      function randomColor(hue, sat = 55, light = 60, a = 1) {
+        return `hsla(${hue},${sat}%,${light}%,${a})`;
+      }
+      function genUniverse() {
+        let cx = canvas.width / 2,
+          cy = canvas.height / 2;
+        // Ikke generer hvis canvas er for liten
+        if (!isValid(cx, cy) || cx < 20 || cy < 20) return null;
+        let star = {
+          x: cx,
+          y: cy,
+          r: 34 + Math.random() * 24,
+          color: randomColor(48 + Math.random() * 40, 80, 70, 1),
+          glow: randomColor(
+            45 + Math.random() * 50,
+            100,
+            87,
+            0.3 + 0.24 * Math.random()
+          ),
+        };
+        let nPlanets = 1 + Math.floor(Math.random() * 3);
+        let planets = [];
+        for (let i = 0; i < nPlanets; i++) {
+          let dist = star.r + 80 + i * 80 + Math.random() * 30;
+          let psize = 18 + Math.random() * 26;
+          let pcolor = randomColor(
+            160 + Math.random() * 160,
+            40 + Math.random() * 40,
+            44 + Math.random() * 35
+          );
+          let phue = 160 + Math.random() * 160;
+          let moons = [];
+          let nMoons =
+            Math.random() < 0.55 ? 1 + Math.floor(Math.random() * 2) : 0;
+          for (let m = 0; m < nMoons; m++) {
+            moons.push({
+              dist: psize + 12 + Math.random() * 13 + m * 18,
+              size: 5 + Math.random() * 7,
+              color: randomColor(
+                110 + Math.random() * 180,
+                35 + Math.random() * 60,
+                66 + Math.random() * 16
+              ),
+              speed: 0.16 + Math.random() * 0.19,
+              phase: Math.random() * Math.PI * 2,
+            });
+          }
+          planets.push({
+            dist,
+            size: psize,
+            color: pcolor,
+            hue: phue,
+            speed: 0.1 + Math.random() * 0.13 + i * 0.01,
+            phase: Math.random() * Math.PI * 2,
+            moons,
+            trail: [],
+          });
+        }
+        let stars = [];
+        for (let i = 0; i < Math.round(120 + Math.random() * 80); i++) {
+          stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 1.7 + 0.5,
+            alpha: 0.42 + Math.random() * 0.5,
+          });
+        }
+        return { star, planets, stars };
+      }
+      universe = genUniverse();
+
+      canvas.addEventListener("click", () => {
+        universe = genUniverse();
+        // Om canvas ikke er klar (eller for liten): prøv igjen om 100ms
+        if (!universe)
+          setTimeout(() => {
+            universe = genUniverse();
+          }, 100);
+      });
+
+      function drawGlow(x, y, r, color, a = 1) {
+        if (!isValid(x, y, r) || r < 2) return;
+        ctx.save();
+        let grad = ctx.createRadialGradient(x, y, r * 0.17, x, y, r);
+        grad.addColorStop(0, color.replace("a)", `${a})`));
+        grad.addColorStop(1, color.replace("a)", `0)`));
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function animate(ts) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let cx = canvas.width / 2,
+          cy = canvas.height / 2;
+        let t = ts * 0.001;
+
+        if (!universe) {
+          universe = genUniverse();
+          if (!universe) return requestAnimationFrame(animate);
+        }
+
+        // Bakgrunnsstjerner
+        for (let star of universe.stars) {
+          ctx.save();
+          ctx.globalAlpha =
+            star.alpha * (0.72 + 0.19 * Math.sin(ts * 0.0004 + star.x * 0.003));
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+          ctx.fillStyle = "#e2f4ff";
+          ctx.shadowColor = "#faffff";
+          ctx.shadowBlur = 6;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Stjerne (sol)
+        drawGlow(
+          universe.star.x,
+          universe.star.y,
+          universe.star.r * 2.2,
+          universe.star.glow,
+          0.55
+        );
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, universe.star.r, 0, Math.PI * 2);
+        ctx.fillStyle = universe.star.color;
+        ctx.shadowColor = universe.star.color;
+        ctx.shadowBlur = 30;
+        ctx.fill();
+        ctx.restore();
+
+        // Planeter og måner
+        for (let planet of universe.planets) {
+          let angle = t * planet.speed + planet.phase;
+          let px = cx + Math.cos(angle) * planet.dist;
+          let py = cy + Math.sin(angle) * planet.dist;
+
+          // Banen/trail
+          ctx.save();
+          ctx.globalAlpha = 0.18;
+          ctx.beginPath();
+          ctx.arc(cx, cy, planet.dist, 0, Math.PI * 2);
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([2, 8]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+
+          // Spor etter planet
+          planet.trail.push({ x: px, y: py });
+          if (planet.trail.length > 22) planet.trail.shift();
+          ctx.save();
+          for (let i = 0; i < planet.trail.length - 1; i++) {
+            let p1 = planet.trail[i],
+              p2 = planet.trail[i + 1];
+            ctx.globalAlpha = 0.18 + (0.21 * i) / planet.trail.length;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = planet.color;
+            ctx.lineWidth = 2.1;
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // Glow
+          drawGlow(px, py, planet.size * 1.6, planet.color, 0.27);
+
+          // Selve planeten
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(px, py, planet.size, 0, Math.PI * 2);
+          ctx.fillStyle = planet.color;
+          ctx.shadowColor = "#fff";
+          ctx.shadowBlur = 10;
+          ctx.globalAlpha = 1;
+          ctx.fill();
+          ctx.restore();
+
+          // Måner
+          for (let moon of planet.moons) {
+            let mang = angle * moon.speed + moon.phase;
+            let mx = px + Math.cos(mang) * moon.dist;
+            let my = py + Math.sin(mang) * moon.dist;
+            drawGlow(mx, my, moon.size * 1.6, moon.color, 0.14);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(mx, my, moon.size, 0, Math.PI * 2);
+            ctx.fillStyle = moon.color;
+            ctx.globalAlpha = 1;
+            ctx.shadowColor = "#fff";
+            ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.restore();
+            // Månebaner
+            ctx.save();
+            ctx.beginPath();
+            ctx.globalAlpha = 0.13;
+            ctx.arc(px, py, moon.dist, 0, Math.PI * 2);
+            ctx.setLineDash([1, 5]);
+            ctx.strokeStyle = moon.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fullskjerm Digitale Tall – Sixtyfour Font</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sixtyfour&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      body {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="numcanvas"></canvas>
+    <script>
+      const canvas = document.getElementById("numcanvas");
+      const ctx = canvas.getContext("2d");
+      let cols, rows, fontSize, grid;
+
+      // ** Dynamisk oppsett av grid **
+      function setupGrid() {
+        // Velg en passende cellestørrelse ut fra skjerm (prøv 40-80px)
+        fontSize = Math.max(24, Math.floor(window.innerWidth / 36));
+        cols = Math.ceil(window.innerWidth / fontSize);
+        rows = Math.ceil(window.innerHeight / fontSize);
+
+        // Lag grid på nytt
+        grid = [];
+        function randomMax() {
+          const r = Math.random();
+          if (r < 0.4) return 9;
+          else if (r < 0.7) return 6;
+          else return 4;
+        }
+        for (let y = 0; y < rows; y++) {
+          grid[y] = [];
+          for (let x = 0; x < cols; x++) {
+            const max = randomMax();
+            grid[y][x] = {
+              max,
+              min: 0,
+              val: Math.floor(Math.random() * (max + 1)),
+              dir: Math.random() < 0.5 ? 1 : -1,
+              nextChange: performance.now() + 200 + Math.random() * 400,
+              hold0or1: Math.random() < 0.5,
+            };
+          }
+        }
+      }
+
+      // ** Canvas resize og grid oppsett **
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        setupGrid();
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      // ** Animasjon **
+      function animate(time) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.font = `bold ${fontSize}px 'Sixtyfour', monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "#4f0";
+        ctx.shadowBlur = 10;
+
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const cell = grid[y][x];
+            if (time > cell.nextChange) {
+              const is01 = cell.val === 0 || cell.val === 1;
+              if (is01 && cell.hold0or1) {
+                cell.nextChange = time + 340 + Math.random() * 500;
+              } else {
+                cell.nextChange = time + 60 + Math.random() * 120;
+              }
+              cell.val += cell.dir;
+              if (cell.val > cell.max) {
+                cell.val = cell.max - 1;
+                cell.dir = -1;
+              }
+              if (cell.val < cell.min) {
+                cell.val = cell.min + 1;
+                cell.dir = 1;
+              }
+            }
+            // Bølge og glitch-effekter
+            let xGlitch = Math.random() < 0.03 ? (Math.random() - 0.5) * 4 : 0;
+            let yGlitch = Math.random() < 0.03 ? (Math.random() - 0.5) * 3 : 0;
+            let wave = Math.sin(performance.now() / 900 + y * 0.25) * 6;
+            let px = x * fontSize + fontSize / 2 + xGlitch + wave;
+            let py = y * fontSize + fontSize / 2 + yGlitch;
+
+            let green = 200 + Math.floor(Math.random() * 50);
+            ctx.fillStyle = `rgb(0,${green},40)`;
+
+            ctx.fillText(cell.val, px, py);
+          }
+        }
+        ctx.restore();
+
+        requestAnimationFrame(animate);
+      }
+      animate(performance.now());
+    </script>
+  </body>
+</html>

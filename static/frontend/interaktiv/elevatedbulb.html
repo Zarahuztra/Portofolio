@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bulende grid på hover</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #191919;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      // -- GRID-OPPSETT --
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let width = window.innerWidth,
+        height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      const gridSpacing = 32; // Avstand mellom punkter
+      const bulgeRadius = 120; // Hvor langt utover musebølgen virker
+      const bulgeStrength = 40; // Maks avstand et punkt "bulker ut"
+
+      let cols = Math.floor(width / gridSpacing);
+      let rows = Math.floor(height / gridSpacing);
+
+      // Lag grid av punkter
+      let points = [];
+      for (let y = 0; y <= rows; y++) {
+        for (let x = 0; x <= cols; x++) {
+          points.push({
+            x: x * gridSpacing,
+            y: y * gridSpacing,
+            ox: x * gridSpacing,
+            oy: y * gridSpacing,
+          });
+        }
+      }
+
+      // Oppdater grid på resize
+      window.addEventListener("resize", () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        cols = Math.floor(width / gridSpacing);
+        rows = Math.floor(height / gridSpacing);
+        points = [];
+        for (let y = 0; y <= rows; y++) {
+          for (let x = 0; x <= cols; x++) {
+            points.push({
+              x: x * gridSpacing,
+              y: y * gridSpacing,
+              ox: x * gridSpacing,
+              oy: y * gridSpacing,
+            });
+          }
+        }
+      });
+
+      // -- INTERAKSJON --
+      let mouse = { x: -1000, y: -1000 }; // Utenfor synsfeltet som default
+
+      canvas.addEventListener("mousemove", (e) => {
+        mouse.x = e.offsetX;
+        mouse.y = e.offsetY;
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        mouse.x = -1000;
+        mouse.y = -1000; // "Nullstill" effekt
+      });
+
+      // -- TEGN GRID --
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Flytt punkter ut fra musepeker
+        for (let p of points) {
+          let dx = p.ox - mouse.x;
+          let dy = p.oy - mouse.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < bulgeRadius) {
+            // Jo nærmere, jo sterkere utbuling
+            let force = (1 - dist / bulgeRadius) * bulgeStrength;
+            let angle = Math.atan2(dy, dx);
+            p.x = p.ox + Math.cos(angle) * force;
+            p.y = p.oy + Math.sin(angle) * force;
+          } else {
+            // Gå sakte tilbake til opprinnelig posisjon
+            p.x += (p.ox - p.x) * 0.15;
+            p.y += (p.oy - p.y) * 0.15;
+          }
+        }
+
+        // Tegn linjer mellom punkter (horisontalt og vertikalt)
+        ctx.strokeStyle = "#ff4218";
+        ctx.lineWidth = 1.1;
+        for (let y = 0; y <= rows; y++) {
+          ctx.beginPath();
+          for (let x = 0; x <= cols; x++) {
+            let idx = y * (cols + 1) + x;
+            if (x === 0) ctx.moveTo(points[idx].x, points[idx].y);
+            else ctx.lineTo(points[idx].x, points[idx].y);
+          }
+          ctx.stroke();
+        }
+        for (let x = 0; x <= cols; x++) {
+          ctx.beginPath();
+          for (let y = 0; y <= rows; y++) {
+            let idx = y * (cols + 1) + x;
+            if (y === 0) ctx.moveTo(points[idx].x, points[idx].y);
+            else ctx.lineTo(points[idx].x, points[idx].y);
+          }
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

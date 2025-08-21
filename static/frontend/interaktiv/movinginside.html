@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Scroll-Zoom Scene</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 600vh;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        background: #111;
+      }
+      #canvas-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      // Setup
+      const container = document.getElementById("canvas-container");
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x111111);
+      container.appendChild(renderer.domElement);
+
+      // Boxes
+      const geometries = [
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.BoxGeometry(1.5, 1.5, 1.5),
+        new THREE.BoxGeometry(2, 2, 2),
+      ];
+      const materials = [
+        new THREE.MeshBasicMaterial({ color: 0xe74c3c }),
+        new THREE.MeshBasicMaterial({ color: 0x3498db }),
+        new THREE.MeshBasicMaterial({ color: 0x2ecc71 }),
+      ];
+      const positions = [
+        new THREE.Vector3(-4, 0, 0),
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(4, 0, 0),
+      ];
+      const boxes = positions.map((pos, i) => {
+        const mesh = new THREE.Mesh(geometries[i], materials[i]);
+        mesh.position.copy(pos);
+        scene.add(mesh);
+        return mesh;
+      });
+
+      // Camera default
+      const defaultPos = new THREE.Vector3(0, 0, 10);
+      const defaultLookAt = new THREE.Vector3(0, 0, 0);
+
+      // Define keyframes for scroll-based camera animation
+      const keyframes = [
+        { t: 0.0, pos: defaultPos.clone(), lookAt: defaultLookAt.clone() },
+        {
+          t: 0.2,
+          pos: new THREE.Vector3(positions[0].x, 0, 3),
+          lookAt: positions[0].clone(),
+        },
+        { t: 0.3, pos: defaultPos.clone(), lookAt: defaultLookAt.clone() },
+        {
+          t: 0.5,
+          pos: new THREE.Vector3(positions[1].x, 0, 3),
+          lookAt: positions[1].clone(),
+        },
+        { t: 0.6, pos: defaultPos.clone(), lookAt: defaultLookAt.clone() },
+        {
+          t: 0.8,
+          pos: new THREE.Vector3(positions[2].x, 0, 3),
+          lookAt: positions[2].clone(),
+        },
+        { t: 0.9, pos: defaultPos.clone(), lookAt: defaultLookAt.clone() },
+        { t: 1.0, pos: defaultPos.clone(), lookAt: defaultLookAt.clone() },
+      ];
+
+      // Track scroll
+      let progress = 0;
+      window.addEventListener("scroll", () => {
+        const maxScroll = document.body.scrollHeight - window.innerHeight;
+        progress = window.scrollY / maxScroll;
+      });
+
+      // Utility lerp
+      function mapRange(value, inMin, inMax, outMin, outMax) {
+        return ((value - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin;
+      }
+
+      // Get interpolated pose based on progress
+      function getPose(p) {
+        // Find segment
+        for (let i = 0; i < keyframes.length - 1; i++) {
+          const k0 = keyframes[i];
+          const k1 = keyframes[i + 1];
+          if (p >= k0.t && p <= k1.t) {
+            const tSegment = mapRange(p, k0.t, k1.t, 0, 1);
+            const camPos = k0.pos.clone().lerp(k1.pos, tSegment);
+            const lookAtPos = k0.lookAt.clone().lerp(k1.lookAt, tSegment);
+            return { camPos, lookAtPos };
+          }
+        }
+        // default fallback
+        return { camPos: defaultPos.clone(), lookAtPos: defaultLookAt.clone() };
+      }
+
+      // Animate
+      function animate() {
+        requestAnimationFrame(animate);
+        const { camPos, lookAtPos } = getPose(progress);
+        camera.position.copy(camPos);
+        camera.lookAt(lookAtPos);
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Handle resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

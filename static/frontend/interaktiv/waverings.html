@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Digital dam – synlige ringer</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #131a23;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hint {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #bbf5ff;
+        font-family: sans-serif;
+        opacity: 0.42;
+        font-size: 1em;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="pond"></canvas>
+    <div class="hint">Klikk eller hold inne for å lage ringer på vannet</div>
+    <script>
+      const canvas = document.getElementById("pond");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = Math.max(32, window.innerWidth);
+        canvas.height = Math.max(32, window.innerHeight);
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      function clamp(val, a, b) {
+        return Math.max(a, Math.min(b, val));
+      }
+
+      let ripples = [];
+      function spawnRipple(x, y, strength = 1) {
+        ripples.push({
+          x,
+          y,
+          r: 0,
+          maxR: 200 + Math.random() * 140,
+          strength: strength * (0.82 + 0.62 * Math.random()),
+          born: performance.now(),
+          speed: 0.42 + Math.random() * 0.22,
+        });
+      }
+
+      let nextWind = performance.now() + 800 + Math.random() * 1800;
+
+      let mouseDown = false;
+      canvas.addEventListener("mousedown", (e) => {
+        mouseDown = true;
+        makeRipple(e);
+      });
+      canvas.addEventListener("mouseup", () => (mouseDown = false));
+      canvas.addEventListener("mouseleave", () => (mouseDown = false));
+      canvas.addEventListener("mousemove", (e) => {
+        if (mouseDown) makeRipple(e, 0.38);
+      });
+      canvas.addEventListener("click", (e) => makeRipple(e, 1.25));
+
+      function makeRipple(e, mult = 1) {
+        const rect = canvas.getBoundingClientRect();
+        spawnRipple(e.clientX - rect.left, e.clientY - rect.top, mult);
+      }
+
+      function drawSurface(time) {
+        let w = canvas.width,
+          h = canvas.height;
+        if (w < 10 || h < 10) return;
+
+        let stop1 = 0;
+        let stop2 = clamp(0.4 + 0.06 * Math.sin(time * 0.0007), 0.01, 0.99);
+        let stop3 = 0.95;
+
+        let grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(stop1, "#1c425c");
+        grad.addColorStop(stop2, "#5099c6");
+        grad.addColorStop(stop3, "#143152");
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 1;
+        ctx.fillRect(0, 0, w, h);
+
+        // Refleks-glow
+        ctx.save();
+        ctx.globalAlpha = 0.15 + 0.08 * Math.sin(time * 0.00047);
+        let cx = w * 0.5,
+          cy = h * 0.27 + 30 * Math.sin(time * 0.00065);
+        let rGlow = Math.max(1, h * 0.55);
+        let grad2 = ctx.createRadialGradient(cx, cy, 40, cx, cy, rGlow);
+        grad2.addColorStop(0, "#eafcff");
+        grad2.addColorStop(1, "#1d2732");
+        ctx.beginPath();
+        ctx.arc(cx, cy, h * 0.53, 0, Math.PI * 2);
+        ctx.fillStyle = grad2;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawRipples(time) {
+        for (let i = ripples.length - 1; i >= 0; i--) {
+          let r = ripples[i];
+          let age = (performance.now() - r.born) * 0.001;
+          r.r = r.speed * age * 230 + 7;
+          let fade = 1 - Math.min(1, r.r / r.maxR);
+
+          // HOVEDRING (lys og klar)
+          ctx.save();
+          ctx.globalAlpha = fade * 0.42 * r.strength + 0.18;
+          ctx.strokeStyle = "rgba(255,255,255,0.64)";
+          ctx.lineWidth = 3.1 + 0.7 * Math.sin(age * 3.1);
+          ctx.shadowColor = "#d4f5fe";
+          ctx.shadowBlur = 7;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          // YTRE DIFFUS RING
+          ctx.save();
+          ctx.globalAlpha = fade * 0.2 * r.strength;
+          ctx.strokeStyle = "#a0e8fc";
+          ctx.lineWidth = 8.4;
+          ctx.shadowColor = "#7de9f6";
+          ctx.shadowBlur = 19;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.r + 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          // INNER KJERNE (lysrefleks)
+          ctx.save();
+          ctx.globalAlpha = fade * 0.15 * r.strength;
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1.2;
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.r - 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          if (r.r > r.maxR) ripples.splice(i, 1);
+        }
+      }
+
+      function animate(ts) {
+        if (typeof ts !== "number" || !isFinite(ts)) ts = performance.now();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawSurface(ts);
+
+        if (performance.now() > nextWind) {
+          let w = canvas.width,
+            h = canvas.height;
+          let x = w * 0.13 + Math.random() * w * 0.74;
+          let y = h * 0.12 + Math.random() * h * 0.56;
+          spawnRipple(x, y, 0.55 + Math.random() * 0.6);
+          nextWind = performance.now() + 900 + Math.random() * 2000;
+        }
+
+        drawRipples(ts);
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
+</html>

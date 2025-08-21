@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dynamic Hover Scroll</title>
+    <style>
+      body {
+        background: #181818;
+        color: #f4f4f4;
+        font-family: sans-serif;
+        display: flex;
+        height: 100vh;
+        align-items: center;
+        justify-content: center;
+      }
+      .scroll-container {
+        width: 400px;
+        height: 300px;
+        overflow: hidden;
+        border-radius: 14px;
+        box-shadow: 0 4px 32px rgba(0, 0, 0, 0.25);
+        background: #262626;
+        padding: 24px 32px;
+        position: relative;
+      }
+      .scroll-content {
+        height: 1000px; /* Gjør teksten lang nok for å vise scroll */
+        overflow: visible;
+        pointer-events: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scroll-container" id="scrollBox">
+      <div class="scroll-content">
+        <h2>Eksempeltekst med hover-scroll</h2>
+        <p>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec
+          odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla
+          quis sem at nibh elementum imperdiet. Duis sagittis ipsum. Praesent
+          mauris. Fusce nec tellus sed augue semper porta. Mauris massa.
+          Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos.<br /><br />
+          Curabitur sodales ligula in libero. Sed dignissim lacinia nunc.
+          Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem
+          at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut
+          ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel,
+          suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia
+          aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt
+          sed, euismod in, nibh.<br /><br />
+          Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos. sem at
+          nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce
+          nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia
+          arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per
+          conubia nostra, per inceptos himenaeos.<br /><br />
+          Curabitur sodales ligula in libero. Sed dignissim lacinia nunc.
+          Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem
+          at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut
+          ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel,
+          suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia
+          aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt
+          sed, euismod in, nibh.<br /><br />
+          Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos. sem at
+          nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce
+          nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia
+          arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per
+          conubia nostra, per inceptos himenaeos.<br /><br />
+          Curabitur sodales ligula in libero. Sed dignissim lacinia nunc.
+          Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem
+          at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut
+          ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel,
+          suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia
+          aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt
+          sed, euismod in, nibh.<br /><br />
+          Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos. sem at
+          nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce
+          nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia
+          arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per
+          conubia nostra, per inceptos himenaeos.<br /><br />
+          Curabitur sodales ligula in libero. Sed dignissim lacinia nunc.
+          Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem
+          at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut
+          ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel,
+          suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia
+          aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt
+          sed, euismod in, nibh.<br /><br />
+          Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad
+          litora torquent per conubia nostra, per inceptos himenaeos.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const scrollBox = document.getElementById("scrollBox");
+      let scrollInterval = null;
+      let speed = 0;
+
+      scrollBox.addEventListener("mousemove", function (e) {
+        const rect = scrollBox.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const height = rect.height;
+        const normalized = (y / height) * 2 - 1; // -1 (øverst), 0 (midten), +1 (nederst)
+        // Juster død-sone rundt midten (f.eks. 20% sone hvor hastighet er 0)
+        const deadZone = 0.2;
+        if (Math.abs(normalized) < deadZone) {
+          speed = 0;
+        } else {
+          // Øk hastigheten gradvis etter hvor langt fra midten du er
+          speed =
+            Math.sign(normalized) *
+            Math.pow(Math.abs(normalized) - deadZone, 1.2) *
+            7; // 7 = maks hastighet (juster etter behov)
+        }
+      });
+
+      scrollBox.addEventListener("mouseleave", function () {
+        speed = 0;
+      });
+
+      function doScroll() {
+        if (speed !== 0) {
+          scrollBox.scrollTop += speed;
+        }
+        requestAnimationFrame(doScroll);
+      }
+      doScroll();
+    </script>
+  </body>
+</html>

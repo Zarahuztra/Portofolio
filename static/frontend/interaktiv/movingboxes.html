@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flytt og stable bokser (med begrensninger)</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+  </head>
+  <body>
+    <script>
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xa3d9ff);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(6, 8, 10);
+      camera.lookAt(3, 2, 0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Lys
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(10, 20, 10);
+      scene.add(dirLight);
+
+      // Plane for raycaster (vertikal, for X/Y)
+      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const planeIntersect = new THREE.Vector3();
+
+      // Raycaster og mus
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+
+      // Bokser
+      const boxes = [];
+      const boxSize = 1;
+      const defaultColor = 0x55aaff;
+      let selected = null;
+      let offset = new THREE.Vector3();
+
+      function createBox(x, y, z) {
+        const box = new THREE.Mesh(
+          new THREE.BoxGeometry(boxSize, boxSize, boxSize),
+          new THREE.MeshStandardMaterial({ color: defaultColor })
+        );
+        box.position.set(x, y, z);
+        scene.add(box);
+        boxes.push(box);
+        return box;
+      }
+
+      // Startbokser
+      createBox(0, 0.5, 0);
+      createBox(2, 0.5, 0);
+      createBox(4, 0.5, 0);
+
+      let isDragging = false;
+
+      window.addEventListener("pointerdown", (event) => {
+        setMouse(event);
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(boxes);
+
+        if (intersects.length > 0) {
+          const hit = intersects[0];
+
+          if (event.shiftKey) {
+            // Sjekk stabelhøyde
+            const stackHeight = boxes.filter(
+              (obj) =>
+                Math.round(obj.position.x) ===
+                  Math.round(hit.object.position.x) &&
+                Math.round(obj.position.z) === Math.round(hit.object.position.z)
+            ).length;
+
+            if (stackHeight < 5) {
+              const topY = stackHeight * boxSize + 0.5;
+              createBox(hit.object.position.x, topY, hit.object.position.z);
+            }
+          } else {
+            selected = hit.object;
+            selected.material.color.set(0xffaa00);
+
+            // Sett plane for X/Y (Z-låst)
+            plane.setFromNormalAndCoplanarPoint(
+              new THREE.Vector3(0, 0, 1),
+              selected.position
+            );
+            raycaster.ray.intersectPlane(plane, planeIntersect);
+            offset.set(
+              planeIntersect.x - selected.position.x,
+              planeIntersect.y - selected.position.y,
+              0
+            );
+
+            isDragging = true;
+          }
+        }
+      });
+
+      window.addEventListener("pointerup", () => {
+        if (selected) {
+          selected.material.color.set(defaultColor);
+          selected = null;
+          isDragging = false;
+        }
+      });
+
+      window.addEventListener("pointermove", (event) => {
+        if (!isDragging || !selected) return;
+
+        setMouse(event);
+        raycaster.setFromCamera(mouse, camera);
+        raycaster.ray.intersectPlane(plane, planeIntersect);
+
+        const futureX = Math.round(planeIntersect.x - offset.x);
+        const futureY = Math.round(planeIntersect.y - offset.y);
+        const futureZ = 0;
+
+        const blocked = boxes.some((obj) => {
+          if (obj === selected) return false;
+          return (
+            Math.round(obj.position.x) === futureX &&
+            Math.round(obj.position.y) === futureY &&
+            Math.round(obj.position.z) === futureZ
+          );
+        });
+
+        if (!blocked) {
+          // Flytt først
+          selected.position.set(futureX, futureY, futureZ);
+
+          // FALL-NED-LOOP
+          while (selected.position.y > 0.5) {
+            const underY = selected.position.y - 1;
+            const hasBoxUnder = boxes.some(
+              (obj) =>
+                obj !== selected &&
+                Math.round(obj.position.x) === futureX &&
+                Math.round(obj.position.y) === underY &&
+                Math.round(obj.position.z) === futureZ
+            );
+
+            if (hasBoxUnder) break;
+            selected.position.y -= 1;
+          }
+        }
+      });
+
+      function setMouse(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

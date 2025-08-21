@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Instanced Voxel Wave</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+      }
+      #container {
+        width: 100%;
+        height: 100%;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      const container = document.getElementById("container");
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 20, 30);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(5, 10, 7.5);
+      scene.add(dirLight);
+
+      // Grid resolution
+      const gridSize = 30;
+      const spacing = 0.6;
+      const count = gridSize * gridSize;
+
+      // Instanced mesh of boxes
+      const boxGeo = new THREE.BoxBufferGeometry(1, 1, 1);
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0x2194ce });
+      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, count);
+      scene.add(instanced);
+
+      // Precompute base positions
+      const basePositions = [];
+      for (let xi = 0; xi < gridSize; xi++) {
+        for (let zi = 0; zi < gridSize; zi++) {
+          const x = (xi - gridSize / 2) * spacing;
+          const z = (zi - gridSize / 2) * spacing;
+          basePositions.push(new THREE.Vector3(x, 0, z));
+        }
+      }
+
+      const dummy = new THREE.Object3D();
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+
+        for (let i = 0; i < count; i++) {
+          const pos = basePositions[i];
+          // Wave function: combine two sin waves
+          const waveX = Math.sin((pos.x + t * 5) * 0.5);
+          const waveZ = Math.cos((pos.z + t * 5) * 0.5);
+          const height = (waveX + waveZ) * 1.5 + 2.0; // baseline + oscillation
+          // Set dummy
+          dummy.position.set(pos.x, height / 2, pos.z);
+          dummy.scale.set(1, height, 1);
+          dummy.updateMatrix();
+          instanced.setMatrixAt(i, dummy.matrix);
+        }
+        instanced.instanceMatrix.needsUpdate = true;
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Kodekort med Skjult Scroll og Filvalg</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #18334a 0%, #14676d 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .main-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+        width: 800px;
+        max-width: 96vw;
+      }
+      .button-row {
+        display: flex;
+        gap: 18px;
+        width: 800px;
+        max-width: 96vw;
+        margin-bottom: 10px;
+        justify-content: center;
+        align-items: center;
+      }
+      .switch-btn {
+        flex: 1;
+        padding: 20px 0;
+        background: #23242a;
+        color: #fff;
+        border: none;
+        border-radius: 16px;
+        font-size: 1.08rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow: 0 2px 10px #0001;
+        transition: background 0.17s, color 0.17s;
+        outline: none;
+      }
+      .switch-btn:hover,
+      .switch-btn.active {
+        background: #313138;
+        color: #fff;
+      }
+      .container {
+        display: flex;
+        gap: 40px;
+        width: 800px;
+        max-width: 96vw;
+      }
+      .card {
+        background: #e79b93;
+        border-radius: 32px;
+        box-shadow: 0 8px 32px 0 rgba(50, 40, 40, 0.22), 0 2px 10px #0001;
+        width: 370px;
+        height: 370px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        position: relative;
+        overflow: hidden;
+      }
+      .code-scroll {
+        flex: 1;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: auto;
+        padding: 28px 22px 28px 22px;
+        font-size: 1.05rem;
+        scrollbar-width: none;
+      }
+      .code-scroll::-webkit-scrollbar {
+        display: none;
+      }
+      pre,
+      code {
+        background: none;
+        color: #fff;
+        font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+        font-size: 0.97rem;
+        line-height: 1.5;
+        white-space: pre;
+        margin: 0;
+        padding: 0;
+        user-select: text;
+      }
+      .hover-scroll {
+        height: 36px;
+        width: 100%;
+        position: absolute;
+        left: 0;
+        z-index: 5;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.18s;
+      }
+      .hover-scroll.top {
+        top: 0;
+        border-radius: 32px 32px 0 0;
+      }
+      .hover-scroll.bottom {
+        bottom: 0;
+        border-radius: 0 0 32px 32px;
+      }
+      .hover-scroll:hover {
+        opacity: 0.14;
+        background: linear-gradient(to bottom, #fff6 0%, #e79b9300 100%);
+      }
+      .preview-card {
+        background: #191f26;
+        border-radius: 32px;
+        box-shadow: 0 8px 32px 0 rgba(50, 40, 40, 0.19), 0 2px 10px #0001;
+        width: 370px;
+        height: 370px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .preview-frame {
+        border: none;
+        border-radius: 22px;
+        background: #fafbfc;
+        width: 90%;
+        height: 90%;
+        box-shadow: 0 4px 20px 0 rgba(40, 110, 140, 0.1);
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-stack">
+      <!-- Knappene -->
+      <div class="button-row">
+        <button class="switch-btn active" data-file="clickbutton.html">
+          Click Button
+        </button>
+        <button class="switch-btn" data-file="dzxplo.html">DZXplo</button>
+        <button class="switch-btn" data-file="fluidtext.html">
+          Fluid Text
+        </button>
+      </div>
+      <!-- Kortene -->
+      <div class="container">
+        <!-- Kodekort -->
+        <div class="card">
+          <div class="hover-scroll top" id="scroll-up"></div>
+          <div class="code-scroll" id="code-scroll">
+            <pre><code id="code-sample">
+&lt;!DOCTYPE html&gt;
+&lt;html lang="no"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Click Button Demo&lt;/title&gt;
+  &lt;style&gt;
+    body {
+      background: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    button {
+      font-size: 1.3rem;
+      padding: 14px 38px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(90deg,#fa6494,#ffb86b);
+      color: #fff;
+      font-weight: bold;
+      box-shadow: 0 2px 16px #fa649455;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: linear-gradient(90deg,#ffb86b,#fa6494);
+    }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;button onclick="alert('Du klikket på knappen!')"&gt;
+    Klikk meg!
+  &lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+          </code></pre>
+          </div>
+          <div class="hover-scroll bottom" id="scroll-down"></div>
+        </div>
+        <!-- Previewkort -->
+        <div class="preview-card">
+          <iframe
+            class="preview-frame"
+            id="preview-frame"
+            src="clickbutton.html"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+    <script>
+      // --- SCROLLFELT PÅ KODEKORTET ---
+      const codeScroll = document.getElementById("code-scroll");
+      let scrollInterval;
+      function startScroll(direction) {
+        stopScroll();
+        scrollInterval = setInterval(() => {
+          codeScroll.scrollTop += direction * 2.2;
+        }, 10);
+      }
+      function stopScroll() {
+        clearInterval(scrollInterval);
+      }
+      document
+        .getElementById("scroll-up")
+        .addEventListener("mouseenter", () => startScroll(-1));
+      document
+        .getElementById("scroll-up")
+        .addEventListener("mouseleave", stopScroll);
+      document
+        .getElementById("scroll-down")
+        .addEventListener("mouseenter", () => startScroll(1));
+      document
+        .getElementById("scroll-down")
+        .addEventListener("mouseleave", stopScroll);
+
+      // --- KNAPPFUNKSJONALITET ---
+      // Du må lime inn korrekt innhold fra filene dine her!
+      const codeSamples = {
+        "clickbutton.html": `
+&lt;!DOCTYPE html&gt;
+&lt;html lang="no"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;Click Button Demo&lt;/title&gt;
+  &lt;style&gt;
+    body {
+      background: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    button {
+      font-size: 1.3rem;
+      padding: 14px 38px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(90deg,#fa6494,#ffb86b);
+      color: #fff;
+      font-weight: bold;
+      box-shadow: 0 2px 16px #fa649455;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: linear-gradient(90deg,#ffb86b,#fa6494);
+    }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;button onclick="alert('Du klikket på knappen!')"&gt;
+    Klikk meg!
+  &lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+      `,
+        "dzxplo.html": `
+&lt;!DOCTYPE html&gt;
+&lt;html lang="no"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;DZXplo Eksempel&lt;/title&gt;
+  &lt;style&gt;
+    body { background: #102430; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; }
+    .boks { background: #215178; padding: 44px 38px; border-radius: 20px; font-size: 2rem; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="boks"&gt;Dette er dzxplo.html!&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+      `,
+        "fluidtext.html": `
+&lt;!DOCTYPE html&gt;
+&lt;html lang="no"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;title&gt;FluidText Eksempel&lt;/title&gt;
+  &lt;style&gt;
+    body { background: #161a22; color: #69f3ff; display: flex; align-items: center; justify-content: center; height: 100vh; }
+    .fluid { font-size: 2.5rem; font-weight: bold; background: linear-gradient(90deg,#69f3ff,#fc93ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;span class="fluid"&gt;Dette er fluidtext.html!&lt;/span&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+      `,
+      };
+
+      // Bytt ut kode og iframe src når du klikker knappene
+      const previewFrame = document.getElementById("preview-frame");
+      const codeSample = document.getElementById("code-sample");
+      const buttons = document.querySelectorAll(".switch-btn");
+
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          // Fjern aktiv
+          buttons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          // Hent filnavn
+          const file = btn.getAttribute("data-file");
+          // Bytt kode
+          codeSample.innerHTML = codeSamples[file] || "// Ingen kode funnet.";
+          codeScroll.scrollTop = 0; // til toppen hver gang man bytter fil
+          // Bytt iframe
+          previewFrame.src = file;
+        });
+      });
+    </script>
+  </body>
+</html>

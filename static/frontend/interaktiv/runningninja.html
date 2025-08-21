@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Transparent Ninja Sprite Animation</title>
+    <style>
+      body {
+        background: #23272f; /* This is just a dark color to see transparency. Change as you wish. */
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #ninja {
+        width: 500px; /* Set to your ninja frame size */
+        height: 500px;
+        object-fit: contain;
+        display: block;
+        image-rendering: pixelated;
+        box-shadow: none;
+      }
+      .controls {
+        position: fixed;
+        left: 50%;
+        bottom: 32px;
+        transform: translateX(-50%);
+        color: #fff;
+        background: #222b;
+        padding: 8px 20px;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-family: sans-serif;
+        user-select: none;
+        text-align: center;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <img id="ninja" src="" alt="Running Ninja" />
+    <div class="controls">
+      Arrow keys: step frame &nbsp; | &nbsp; Space: autoplay/stop
+    </div>
+    <script>
+      const totalFrames = 149; // Adjust if you have a different number!
+      const folder = "runningsplit";
+      const baseName = "frame_";
+      const delayPart = "_delay-0.03s.gif"; // Make sure this matches your files!
+
+      function pad(num, size) {
+        let s = "000" + num;
+        return s.substr(s.length - size);
+      }
+
+      // Make a list of frame filenames automatically
+      const frames = [];
+      for (let i = 1; i <= totalFrames; i++) {
+        frames.push(`${folder}/${baseName}${pad(i, 3)}${delayPart}`);
+      }
+
+      let frame = 0;
+      let autoplay = false;
+      let playSpeed = 50;
+      let playInterval = null;
+      const ninja = document.getElementById("ninja");
+
+      function setFrame(n) {
+        if (n < 0) n = frames.length - 1;
+        if (n >= frames.length) n = 0;
+        frame = n;
+        ninja.src = frames[frame];
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "d") {
+          setFrame(frame + 1);
+        }
+        if (e.key === "a") {
+          setFrame(frame - 1);
+        }
+        if (e.key === " ") {
+          autoplay = !autoplay;
+          if (autoplay) {
+            playInterval = setInterval(() => setFrame(frame + 1), playSpeed);
+          } else {
+            clearInterval(playInterval);
+          }
+        }
+      });
+
+      // Show first frame
+      setFrame(frame);
+    </script>
+  </body>
+</html>

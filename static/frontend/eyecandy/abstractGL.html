@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Three.js Shader Demo</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #111;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+
+    <!-- Vertex Shader -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position, 1.0);
+      }
+    </script>
+
+    <!-- Fragment Shader -->
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      precision highp float;
+      uniform vec2 u_resolution;
+      uniform float u_time;
+      varying vec2 vUv;
+      #define EPSILON 1e-6
+      #define PI 3.14159265359
+      #define ITERATIONS 18.0
+
+      mat2 rotate2d(float angle){
+        return mat2(cos(angle), -sin(angle),
+                    sin(angle),  cos(angle));
+      }
+
+      void main() {
+        vec2 uv = (vUv * 2.0 - 1.0)
+          * (u_resolution / max(u_resolution.x, u_resolution.y));
+        vec2 u = uv * 0.25;
+        vec4 o = vec4(0.5, 1.0, 1.5, 0.0);
+        vec2 v_internal = vec2(0.0);
+        float a = 0.6;
+        float t = u_time * 0.8;
+
+        for (float i = 0.0; i < ITERATIONS; i++) {
+          float u_dot = dot(u,u);
+          float denom = 0.6 - u_dot + sign(0.6 - u_dot) * EPSILON;
+          vec2 sin_arg = (1.4 * u / denom)
+            - (7.0 * u.yx * cos(t * 0.2))
+            + t * 1.1
+            + v_internal * 0.3;
+          vec2 length_arg = (1.0 + i * 0.1 + a * 0.2) * sin(sin_arg);
+          float len = length(length_arg);
+          float safe_len = max(len, EPSILON);
+
+          o += (1.0 + sin(o * 0.9 + t * 1.2 + i * 0.1))
+               / safe_len
+               * (1.0 + i * 0.02);
+
+          v_internal = clamp(
+            0.9 * v_internal
+              + 0.15 * sin(t * 1.5 + u * 4.0 - o.xy * 0.2),
+            -1.0, 1.0
+          );
+
+          a += 0.035;
+          float angle = i * 0.1 + t * 0.05 + a * 0.2;
+          u *= rotate2d(angle);
+
+          float o_dot = dot(o.xyz, o.xyz);
+          float fb = 0.5 + 0.5 * sin(o_dot * 0.02 + t * 0.3);
+          u += sin(60.0 * dot(u,u) * cos(80.0 * u.yx + t * 1.2)) / 250.0
+             + 0.15 * a * u * fb
+             + cos(o.xy * 0.5 + t * 1.1 + v_internal * 0.8) / 350.0
+             + rotate2d(v_internal.x * 0.01) * vec2(0.0001, 0.0);
+        }
+
+        vec3 base = 0.5 + 0.5 * cos(
+          o.xyz * 0.8
+          + t * 0.15
+          + vec3(0.0, PI * 0.66, PI * 1.33)
+        );
+        vec2 dcoord = u * 5.0 + v_internal;
+        float detail = smoothstep(
+          0.3, 0.7,
+          fract(
+            dcoord.x * cos(t * 0.1)
+            + dcoord.y * sin(t * 0.1)
+          )
+        );
+        vec3 dcol = vec3(detail * 0.8 + 0.2);
+        float mixF = clamp(length(o.xyz) * 0.1 - 0.1, 0.0, 1.0);
+        vec3 color = mix(base, dcol * base, mixF);
+        color.rg += u.xy * 0.05;
+        float dist = length(vUv - 0.5);
+        color *= pow(1.0 - dist * 1.2, 2.0);
+
+        gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+      }
+    </script>
+
+    <!-- Three.js -->
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js";
+
+      let renderer, scene, camera, clock, uniforms;
+
+      function init() {
+        const container = document.getElementById("container");
+        clock = new THREE.Clock();
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        scene = new THREE.Scene();
+        camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const geometry = new THREE.PlaneGeometry(2, 2);
+
+        uniforms = {
+          u_time: { value: 0.0 },
+          u_resolution: {
+            value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+          },
+        };
+
+        const material = new THREE.ShaderMaterial({
+          uniforms,
+          vertexShader: document.getElementById("vertexShader").textContent,
+          fragmentShader: document.getElementById("fragmentShader").textContent,
+        });
+
+        scene.add(new THREE.Mesh(geometry, material));
+
+        window.addEventListener("resize", onResize);
+        renderer.setAnimationLoop(animate);
+      }
+
+      function onResize() {
+        const w = window.innerWidth,
+          h = window.innerHeight;
+        renderer.setSize(w, h);
+        uniforms.u_resolution.value.set(w, h);
+      }
+
+      function animate() {
+        uniforms.u_time.value = clock.getElapsedTime();
+        renderer.render(scene, camera);
+      }
+
+      init();
+    </script>
+  </body>
+</html>

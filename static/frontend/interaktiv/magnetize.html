@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Magnetisk grid med selvstendig hover-glow/flash</title>
+    <style>
+      body {
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .container {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        grid-template-rows: repeat(10, 1fr);
+        gap: 8px;
+        padding: 18px;
+        border: 3px solid #222;
+        box-sizing: border-box;
+        transition: background 0.5s;
+      }
+      .cell {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        position: relative;
+        overflow: hidden;
+        transition: background 0.5s, box-shadow 0.25s, filter 0.2s;
+        cursor: pointer;
+      }
+      .letter {
+        font-size: 2em;
+        font-family: monospace;
+        font-weight: bold;
+        pointer-events: none;
+        display: block;
+        transition: color 0.5s, transform 0.15s;
+        will-change: transform;
+        text-shadow: 0 1px 2px #222, 0 0 6px #111c;
+      }
+      .cell.glow {
+        box-shadow: 0 0 22px 6px #fff8, 0 0 0 3px #222 inset;
+        filter: brightness(1.3) saturate(1.5);
+        z-index: 2;
+      }
+      .cell.flash {
+        box-shadow: 0 0 32px 12px #fff, 0 0 0 3px #222 inset;
+        filter: brightness(2.5) saturate(2.2);
+        z-index: 3;
+        transition: box-shadow 0.1s, filter 0.1s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" id="grid"></div>
+    <script>
+      const rows = 10,
+        cols = 10;
+      const grid = document.getElementById("grid");
+      const cells = [];
+
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+      function randomColor() {
+        const hue = Math.floor(Math.random() * 360);
+        const sat = 60 + Math.random() * 30; // 60–90%
+        const light = 45 + Math.random() * 20; // 45–65%
+        return `hsl(${hue}, ${sat}%, ${light}%)`;
+      }
+
+      let currentChar = chars[Math.floor(Math.random() * chars.length)];
+      let currentColor = randomColor();
+
+      function setColorAll(color) {
+        grid.style.background = color;
+        grid.style.boxShadow = `0 2px 20px 0 ${color}77`;
+        cells.forEach(({ cell, letter }) => {
+          cell.style.background = color;
+          letter.style.color = color;
+        });
+      }
+
+      function setCharAll(ch) {
+        cells.forEach(({ letter }) => {
+          letter.textContent = ch;
+        });
+      }
+
+      // Lag gridet
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.style.background = currentColor;
+
+          const letter = document.createElement("span");
+          letter.className = "letter";
+          letter.textContent = currentChar;
+          letter.style.color = currentColor;
+
+          cell.style.boxShadow = "0 0 0 3px #222 inset";
+
+          cell.appendChild(letter);
+          grid.appendChild(cell);
+          cells.push({ cell, letter });
+
+          // Hover-effekt: Glow i 1 sek, flash i 120ms
+          cell.addEventListener("mouseenter", () => {
+            // Ikke restart om effekten allerede kjører
+            if (
+              cell.classList.contains("glow") ||
+              cell.classList.contains("flash")
+            )
+              return;
+
+            cell.classList.add("glow");
+            cell._glowTimeout = setTimeout(() => {
+              cell.classList.remove("glow");
+              cell.classList.add("flash");
+              cell._flashTimeout = setTimeout(() => {
+                cell.classList.remove("flash");
+              }, 120); // Flash varer i 120ms
+            }, 1000); // Glow varer i 1s
+          });
+
+          // Rydd opp ved reload/endringer (valgfritt)
+          cell.addEventListener("mouseleave", () => {
+            // Ikke tilbakestill - effekten skal fullføres selv om musen går videre
+          });
+        }
+      }
+
+      setColorAll(currentColor);
+      setCharAll(currentChar);
+
+      // Endre tegn hvert 5. sek
+      setInterval(() => {
+        let newChar;
+        do {
+          newChar = chars[Math.floor(Math.random() * chars.length)];
+        } while (newChar === currentChar);
+        currentChar = newChar;
+        setCharAll(currentChar);
+      }, 5000);
+
+      // Endre farge hvert 10. sek
+      setInterval(() => {
+        let newColor;
+        do {
+          newColor = randomColor();
+        } while (newColor === currentColor);
+        currentColor = newColor;
+        setColorAll(currentColor);
+      }, 10000);
+
+      // Magnet-effekt
+      grid.addEventListener("mousemove", (e) => {
+        const rect = grid.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        cells.forEach(({ cell, letter }) => {
+          const cellRect = cell.getBoundingClientRect();
+          const centerX = cellRect.left + cellRect.width / 2 - rect.left;
+          const centerY = cellRect.top + cellRect.height / 2 - rect.top;
+          const dx = mouseX - centerX;
+          const dy = mouseY - centerY;
+          const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+          letter.style.transform = `rotate(${angle}deg)`;
+        });
+      });
+
+      grid.addEventListener("mouseleave", () => {
+        cells.forEach(({ letter }) => {
+          letter.style.transform = "rotate(0deg)";
+        });
+      });
+    </script>
+  </body>
+</html>

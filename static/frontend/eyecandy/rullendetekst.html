@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sømløs kanttekst (uten dobbel)</title>
+    <style>
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f0f0f0;
+      }
+      .container {
+        width: 400px;
+        height: 300px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      svg {
+        width: 100%;
+        height: 100%;
+      }
+      /* stien er usynlig */
+      path {
+        fill: none;
+        stroke: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Boks med avrundede hjørner -->
+          <path
+            id="border-path"
+            d="
+                M20,20 
+                H400 
+                A10,10 0 0 1 410,30 
+                V300 
+                A10,10 0 0 1 400,310 
+                H20 
+                A10,10 0 0 1 10,300 
+                V30 
+                A10,10 0 0 1 20,20 
+                Z"
+          />
+        </defs>
+        <g id="text-group"></g>
+      </svg>
+    </div>
+
+    <script>
+      (function () {
+        const svg = document.querySelector("svg");
+        const path = document.getElementById("border-path");
+        const pathLen = path.getTotalLength();
+        const ROUND = 10_000; // tid per runde i ms
+        const speed = pathLen / ROUND; // px per ms
+
+        // 1) Meldingen du vil vise:
+        const msg =
+          "🎉 Dette er en animert tekst som ruller kontinuerlig! 🔥🌶️✨ — ";
+
+        // 2) Mål faktisk piksel-lengde på én melding
+        const tempText = document.createElementNS(svg.namespaceURI, "text");
+        tempText.setAttribute("font-size", "18");
+        tempText.textContent = msg;
+        svg.appendChild(tempText);
+        const msgLen = tempText.getComputedTextLength();
+        svg.removeChild(tempText);
+
+        // 3) Finn hvor mange repetisjoner som trengs for å dekke hele pathLen + én ekstra
+        const repeats = Math.ceil(pathLen / msgLen) + 1;
+        const fullText = msg.repeat(repeats);
+        const chars = Array.from(fullText);
+        const N = chars.length;
+        const spacing = pathLen / N;
+
+        // 4) Lag én <text><textPath> per bokstav, jevnt fordelt
+        const grp = document.getElementById("text-group");
+        chars.forEach((ch, i) => {
+          const t = document.createElementNS(svg.namespaceURI, "text");
+          t.setAttribute("font-size", "18");
+          t.setAttribute("fill", "#333");
+
+          const tp = document.createElementNS(svg.namespaceURI, "textPath");
+          tp.setAttribute("href", "#border-path");
+          tp.setAttribute("startOffset", i * spacing);
+          tp.textContent = ch;
+
+          t.appendChild(tp);
+          grp.appendChild(t);
+        });
+
+        // 5) Animér alle bokstavene kontinuerlig
+        let lastTime = null,
+          offset = 0;
+        function tick(now) {
+          if (lastTime !== null) {
+            const dt = now - lastTime;
+            offset = (offset + dt * speed) % pathLen;
+            grp.querySelectorAll("textPath").forEach((tp, i) => {
+              const pos = (i * spacing + offset) % pathLen;
+              tp.setAttribute("startOffset", pos);
+            });
+          }
+          lastTime = now;
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })();
+    </script>
+  </body>
+</html>

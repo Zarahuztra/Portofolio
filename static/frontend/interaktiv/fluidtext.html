@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hover Flowmap Text – Mer Tydelig Effekt</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        width: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://unpkg.com/three@0.153.0/build/three.min.js"></script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+      uniform sampler2D textTexture;
+      uniform sampler2D flowTexture;
+      varying vec2 vUv;
+      void main() {
+        vec2 flow = texture2D(flowTexture, vUv).rg * 2.0 - 1.0;
+        // Økt styrke på forvrengning!
+        vec2 uv = vUv + flow * 0.11;
+        vec4 txt = texture2D(textTexture, uv);
+        gl_FragColor = vec4(txt.rgb, txt.a);
+      }
+    </script>
+    <script>
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setClearColor(0x000000, 1);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(
+        -1,
+        1,
+        0.333,
+        -0.333,
+        0.1,
+        10
+      );
+      camera.position.z = 1;
+
+      function makeTextTexture(txt = "Zarahuztra.") {
+        const w = 1200,
+          h = 350;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, w, h);
+        ctx.font = "bold 170px Arial Black, Arial, sans-serif";
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(txt, w / 2, h / 2);
+        const tex = new THREE.Texture(canvas);
+        tex.needsUpdate = true;
+        tex.minFilter = THREE.LinearFilter;
+        return tex;
+      }
+      const textTexture = makeTextTexture();
+
+      const flowRes = 512;
+      const flowTarget = new THREE.WebGLRenderTarget(flowRes, flowRes);
+
+      const uniforms = {
+        textTexture: { value: textTexture },
+        flowTexture: { value: flowTarget.texture },
+      };
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById("vertexShader").textContent,
+        fragmentShader: document.getElementById("fragmentShader").textContent,
+        uniforms: uniforms,
+        transparent: true,
+      });
+      const geo = new THREE.PlaneBufferGeometry(2, 2 / 3, 1, 1);
+      const mesh = new THREE.Mesh(geo, mat);
+      scene.add(mesh);
+
+      const flowCanvas = document.createElement("canvas");
+      flowCanvas.width = flowCanvas.height = flowRes;
+      const flowCtx = flowCanvas.getContext("2d");
+      let prevX = 0,
+        prevY = 0;
+      let drawing = false;
+
+      // For dramatisk effekt, fade ut saktere og større, sterkere alpha
+      function drawFlow(x, y) {
+        flowCtx.globalAlpha = 0.93; // fade ut mindre for mer varighet
+        flowCtx.fillStyle = "#808080";
+        flowCtx.fillRect(0, 0, flowRes, flowRes);
+        flowCtx.globalAlpha = 1.0;
+        // Større radius og mer alpha!
+        const r = 90;
+        let grad = flowCtx.createRadialGradient(x, y, 1, x, y, r);
+        grad.addColorStop(0, "rgba(255,128,128,1.0)");
+        grad.addColorStop(1, "rgba(128,128,255,0.0)");
+        flowCtx.beginPath();
+        flowCtx.arc(x, y, r, 0, Math.PI * 2);
+        flowCtx.fillStyle = grad;
+        flowCtx.fill();
+      }
+
+      renderer.setAnimationLoop(() => {
+        const flowTex = new THREE.Texture(flowCanvas);
+        flowTex.needsUpdate = true;
+        uniforms.flowTexture.value = flowTex;
+        renderer.render(scene, camera);
+      });
+
+      function canvasToFlow(x, y) {
+        const bb = renderer.domElement.getBoundingClientRect();
+        return [
+          ((x - bb.left) / bb.width) * flowRes,
+          ((y - bb.top) / bb.height) * flowRes,
+        ];
+      }
+      renderer.domElement.addEventListener("mousemove", (e) => {
+        drawing = true;
+        const [fx, fy] = canvasToFlow(e.clientX, e.clientY);
+        drawFlow(fx, fy);
+        prevX = fx;
+        prevY = fy;
+      });
+
+      flowCtx.fillStyle = "#808080";
+      flowCtx.fillRect(0, 0, flowRes, flowRes);
+
+      window.addEventListener("resize", () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

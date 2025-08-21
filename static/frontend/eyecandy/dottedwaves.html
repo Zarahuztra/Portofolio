@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js Dot Wave Particles</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      #canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+      // Scene, camera, renderer
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 10, 20);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Controls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      // Parameters
+      const gridSize = 100;
+      const separation = 0.3;
+      const count = gridSize * gridSize;
+
+      // BufferGeometry
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const offsets = new Float32Array(count * 2);
+      let i = 0,
+        j = 0;
+      for (let x = 0; x < gridSize; x++) {
+        for (let z = 0; z < gridSize; z++) {
+          positions[i * 3 + 0] = (x - gridSize / 2) * separation;
+          positions[i * 3 + 1] = 0;
+          positions[i * 3 + 2] = (z - gridSize / 2) * separation;
+          offsets[j * 2 + 0] = x;
+          offsets[j * 2 + 1] = z;
+          i++;
+          j++;
+        }
+      }
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+      );
+      geometry.setAttribute("offset", new THREE.BufferAttribute(offsets, 2));
+
+      // Shader material for points
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0.0 },
+          uAmplitude: { value: 1.5 },
+          uFrequency: { value: 0.5 },
+        },
+        vertexShader: `
+        uniform float uTime;
+        uniform float uAmplitude;
+        uniform float uFrequency;
+        attribute vec2 offset;
+        void main() {
+          vec3 pos = position;
+          float wave = sin((offset.x + offset.y) * uFrequency + uTime) * uAmplitude;
+          pos.y = wave;
+          gl_PointSize = 2.0;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+        fragmentShader: `
+        void main() {
+          gl_FragColor = vec4(0.8, 0.2, 0.2, 1.0);
+        }
+      `,
+        transparent: false,
+      });
+
+      // Points
+      const points = new THREE.Points(geometry, material);
+      scene.add(points);
+
+      // Resize handling
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Animate
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        material.uniforms.uTime.value = clock.getElapsedTime();
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    </script>
+  </body>
+</html>

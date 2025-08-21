@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Raining Text (pre-filled)</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: black;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+
+      function resize() {
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
+      }
+      addEventListener("resize", resize);
+      resize();
+
+      const chars =
+        "アァカサタナハマヤャラワンイィキシチニヒミリヰウゥクスツヌフムユュルエェケセテネヘメレヱオォコソトノホモヨョルヴンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const fontSize = 24;
+      const columns = Math.floor(canvas.width / fontSize);
+      const rows = Math.floor(canvas.height / fontSize);
+      const drops = new Array(columns).fill(0);
+
+      function populate() {
+        ctx.fillStyle = "#F00";
+        ctx.font = fontSize + "px monospace";
+        for (let x = 0; x < columns; x++) {
+          // pick a random starting row for this column
+          drops[x] = Math.floor(Math.random() * rows);
+          for (let y = 0; y < rows; y++) {
+            const text = chars.charAt(Math.floor(Math.random() * chars.length));
+            ctx.fillText(text, x * fontSize, y * fontSize);
+          }
+        }
+      }
+
+      function draw() {
+        // fade with a very slight opacity so existing text lingers briefly
+        ctx.fillStyle = "rgba(0,0,0,0.05)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#F00";
+        ctx.font = fontSize + "px monospace";
+
+        for (let i = 0; i < columns; i++) {
+          const text = chars.charAt(Math.floor(Math.random() * chars.length));
+          // draw one character at the drop position
+          ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+          // reset to top occasionally
+          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+
+        // schedule next frame at ~15 FPS (every 66ms)
+        setTimeout(draw, 66);
+      }
+
+      // 1) fill the whole screen once
+      populate();
+      // 2) then kick off the looping “rain”
+      draw();
+    </script>
+  </body>
+</html>
