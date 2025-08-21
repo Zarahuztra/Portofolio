@@ -30,8 +30,8 @@
 </section>
 
 <!-- Modalen med innholdet -->
-<Box3DModal mode="video">
-	<ShowcaseFlow bind:this={flow} on:playingChange={handlePlayingChange} />
+<Box3DModal mode="video" closeOnBackdrop={false}>
+	<ShowcaseFlow />
 </Box3DModal>
 
 <style>

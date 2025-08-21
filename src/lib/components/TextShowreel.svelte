@@ -26,7 +26,6 @@
 		'Prompt design'
 	];
 	const deliverables = [
-		'White papers',
 		'Case-studier',
 		'Articles',
 		'Reviews',

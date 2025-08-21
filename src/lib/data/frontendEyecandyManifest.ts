@@ -2,7 +2,7 @@
 export type EyecandyItem = { src: string; title?: string };
 export type EyecandyManifest = { category: string; items: EyecandyItem[] };
 
-// NB: filene må ligge i /static/frontend/eyecandy/ og hete .html
+// NB: filene må ligge i /static/frontend/eyecandy/*.html
 export const frontendEyecandy: EyecandyManifest[] = [
 	{
 		category: 'Eyecandy',
@@ -21,5 +21,4 @@ export const frontendEyecandy: EyecandyManifest[] = [
 	}
 ];
 
-// for enkelhets skyld samme struktur som andre manifester
 export const eyecandyItems = frontendEyecandy[0].items;

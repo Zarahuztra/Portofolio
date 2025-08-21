@@ -56,7 +56,6 @@ export const videoManifests: VideoManifest[] = [
 	}
 ];
 
-// Praktisk oppslag per kategori (valgfritt)
 export const videosByCategory = Object.fromEntries(
 	videoManifests.map((m) => [m.category, m.items])
 );

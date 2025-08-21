@@ -46,7 +46,8 @@
 		'played guitar for 40 years',
 		'technical guitarist',
 		'all-round guitarist',
-		'classical guitar'
+		'classical guitar',
+		'AI Music Production'
 	];
 	const wordPool = [...genres, ...guitarBg];
 
